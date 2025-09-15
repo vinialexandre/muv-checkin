@@ -1,4 +1,4 @@
-# checkin-muv
+# muv-checkin
 
 Next.js 15 + Chakra UI + Firebase app for student check-in, attendance, and plan management. Includes a full-screen kiosk with webcam, simple liveness, and 1:N face matching using `@vladmandic/face-api`.
 
