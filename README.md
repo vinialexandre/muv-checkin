@@ -1,15 +1,15 @@
 # muv-checkin
 
-Next.js 15 + Chakra UI + Firebase app for student check-in, attendance, and plan management. Includes a full-screen kiosk with webcam, simple liveness, and 1:N face matching using `@vladmandic/face-api`.
+Aplicativo Next.js 15 + Chakra UI + Firebase para check-in e gestão de presença/planos de alunos. Inclui um kiosque em tela cheia com webcam, verificação simples de liveness e reconhecimento facial 1:N usando `@vladmandic/face-api`.
 
 ## Stack
 
 - Next 15 (App Router, TypeScript)
-- Chakra UI with minimalist MUV theme (P&B)
-- Firebase: Auth (email/password), Firestore, Storage
-- FaceID: `@vladmandic/face-api` in browser; models in `public/models`
+- Chakra UI com tema minimalista (P&B)
+- Firebase: Auth (email/senha), Firestore, Storage
+- FaceID: `@vladmandic/face-api` no navegador; modelos em `public/models`
 
-## App Structure
+## Estrutura do app
 
 ```
 /app
@@ -23,60 +23,60 @@ Next.js 15 + Chakra UI + Firebase app for student check-in, attendance, and plan
 /components/{VideoCanvas,LivenessHint,Table,Form}
 ```
 
-## Firestore Collections
+## Coleções do Firestore
 
 - `students: { name, phone, active, photos: string[], descriptors: number[128][], centroid: number[128], activePlanId?: string, paymentStatus?: 'ok'|'late', paymentDueAt?: Timestamp }`
 - `plans: { name, price }` (mensal, sem créditos)
 - `classes: { modality, startsAt, endsAt, roster: string[] }`
 - `attendances: { id=classId_studentId_yyyymmdd, classId, studentId, source:'face'|'manual', createdAt }`
 
-Idempotency and time-window rules are implemented in `lib/firestore.ts`.
+Regras de idempotência e janela de tempo estão em `lib/firestore.ts`.
 
-## Setup
+## Configuração
 
-1. Copy `.env.example` to `.env.local` and fill Firebase Web config and Admin credentials.
-2. Place face-api model files into `public/models` (see below).
-3. Install deps and run:
+1. Copie `.env.example` para `.env.local` e preencha as variáveis do Firebase (Web) e Admin SDK.
+2. Coloque os arquivos de modelo do face-api em `public/models` (veja abaixo).
+3. Instale e rode:
    - `npm i`
    - `npm run dev`
 
-### Face Models
+### Modelos de Face
 
-Download model files compatible with `@vladmandic/face-api` and put them in `public/models`:
+Baixe os modelos compatíveis com `@vladmandic/face-api` e coloque em `public/models`:
 
-- `tiny_face_detector_model-weights_manifest.json` and shards
-- `face_landmark_68_model-weights_manifest.json` and shards
-- `face_recognition_model-weights_manifest.json` and shards
+- `tiny_face_detector_model-weights_manifest.json` + shards
+- `face_landmark_68_model-weights_manifest.json` + shards
+- `face_recognition_model-weights_manifest.json` + shards
 
-You can change the base path using `NEXT_PUBLIC_FACE_MODELS_PATH`.
+Você pode alterar o caminho base com `NEXT_PUBLIC_FACE_MODELS_PATH`.
 
-## Admin Claims
+## Claims de Admin
 
-Admin access is via Firebase custom claim `admin`. Create a user (email/senha) in Firebase Auth, then set the claim:
+O acesso administrativo usa a custom claim `admin` do Firebase. Crie um usuário (email/senha) no Firebase Auth e defina a claim:
 
-`POST /api/_internal/set-claim` body `{ uid: string, admin: boolean }`
+`POST /api/_internal/set-claim` com body `{ uid: string, admin: boolean }`
 
-Steps:
-- Find the user UID in Firebase Console > Authentication.
-- Ensure Admin SDK env vars are configured (see `.env.example`).
-- From your app or `curl`, call the endpoint above with `{ uid, admin: true }`.
-- Log in at `/login`. Admin pages are protected and require this claim.
+Passos:
+- Localize o UID do usuário no Console Firebase → Authentication.
+- Garanta que as variáveis do Admin SDK estejam configuradas (veja `.env.example`).
+- Do app ou via `curl`, chame o endpoint acima com `{ uid, admin: true }`.
+- Faça login em `/login`. As páginas de admin exigem essa claim.
 
-Requires Admin SDK env vars. Intended for one-time setup.
+Requer variáveis do Admin SDK. Indicado para configuração inicial.
 
-CLI alternative:
+Alternativa via CLI:
 - `npm run -s tsx scripts/set-admin.ts <uid> true`
 
-Dev bypass (local only):
-- Set `NEXT_PUBLIC_DEV_ADMIN_BYPASS=1` in `.env` (already set by default for local).
-- At `/login`, use `admin` / `admin` to access admin without Firebase Auth.
-- Do NOT enable this in production.
+Bypass de desenvolvimento (somente local):
+- Defina `NEXT_PUBLIC_DEV_ADMIN_BYPASS=1` no `.env` (apenas local).
+- Em `/login`, use `admin` / `admin` para acessar sem Firebase Auth.
+- Não habilite isso em produção.
 
 ## Deploy
 
-- Vercel: add `.env` variables. Set `NEXT_PUBLIC_*` client vars.
-- Firebase: create project, enable Auth (email/password), Firestore, Storage. Upload models to `public/models` in the repo, then deploy to Vercel.
+- Vercel: adicione as variáveis `.env`. Defina as `NEXT_PUBLIC_*` do cliente.
+- Firebase: crie o projeto, habilite Auth (email/senha), Firestore e Storage. Suba os modelos em `public/models` e depois faça o deploy na Vercel.
 
-## Seed (optional)
+## Seed (opcional)
 
-`npm run seed` uses Admin SDK to create sample plans and classes. Configure Admin env vars first.
+`npm run seed` usa o Admin SDK para criar planos e uma aula de exemplo. Configure as variáveis do Admin antes.
