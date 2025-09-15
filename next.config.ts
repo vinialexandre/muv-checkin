@@ -2,8 +2,8 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  typedRoutes: true,
   experimental: {
-    typedRoutes: true,
     serverActions: {
       allowedOrigins: ["*"],
     },
@@ -15,7 +15,6 @@ const nextConfig: NextConfig = {
     ],
   },
   webpack: (config) => {
-    // Avoid bundling Node modules into client (face-api deps try to require 'fs')
     config.resolve = config.resolve || {} as any;
     (config.resolve as any).fallback = {
       ...((config.resolve as any).fallback || {}),

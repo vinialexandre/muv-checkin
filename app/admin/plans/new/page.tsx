@@ -1,5 +1,7 @@
 "use client";
 import PageCard from '@/components/PageCard';
+import { Icon } from '@/components/Icon';
+
 import { Button, FormControl, FormErrorMessage, HStack, Input, InputGroup, InputLeftAddon, Text, VStack, useToast } from '@chakra-ui/react';
 import { useRouter } from 'next/navigation';
 import * as yup from 'yup';
@@ -37,8 +39,11 @@ export default function NewPlanPage() {
 
   return (
     <PageCard>
-      <VStack align="stretch" spacing={4}>
-        <Text fontSize="lg" fontWeight={600}>Cadastro de plano</Text>
+      <VStack align="stretch" spacing={6}>
+        <HStack>
+          <Icon name='folder' />
+          <Text fontSize="xl" fontWeight={700}>Cadastro de plano</Text>
+        </HStack>
         <HStack spacing={3} wrap="wrap">
           <Controller name="name" control={control} render={({ field }) => (
             <FormControl isInvalid={!!errors.name} isRequired>
@@ -58,7 +63,7 @@ export default function NewPlanPage() {
         </HStack>
         <HStack justify="flex-end">
           <Button variant="ghost" onClick={()=>router.push('/admin/plans')}>Cancelar</Button>
-          <Button colorScheme="blue" onClick={save} isDisabled={!isValid || isSubmitting} isLoading={isSubmitting}>Salvar</Button>
+          <Button variant="secondary" onClick={save} isDisabled={!isValid || isSubmitting} isLoading={isSubmitting}>Salvar</Button>
         </HStack>
       </VStack>
     </PageCard>

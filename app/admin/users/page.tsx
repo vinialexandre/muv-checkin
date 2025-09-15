@@ -3,6 +3,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertDialog, AlertDialogBody, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogOverlay, Box, Button, Center, HStack, Input, Select, Spinner, Table, Tbody, Td, Th, Thead, Tr, VStack, useToast, Text } from '@chakra-ui/react';
 import PageCard from '@/components/PageCard';
 import { useRouter } from 'next/navigation';
+import { Icon } from '@/components/Icon';
+
 
 type User = { uid: string; email?: string; displayName?: string; role?: string };
 
@@ -92,28 +94,33 @@ export default function UsersPage() {
   }, [nextToken, loadingMore]);
 
   return (
-    <VStack align="stretch" spacing={6}>
+    <VStack align="stretch" spacing={8}>
       <PageCard>
-        <Text fontSize="lg" fontWeight={600} mb={3}>Usuários</Text>
-        <HStack justify="space-between" mb={2}><Text fontWeight={600}>Filtros</Text></HStack>
-        <HStack wrap="wrap" spacing={3}>
-          <Input borderRadius="md" placeholder="Nome" value={filterName} onChange={(e)=>setFilterName(e.target.value)} maxW="200px" />
-          <Input borderRadius="md" placeholder="Email" type="email" value={filterEmail} onChange={(e)=>setFilterEmail(emailMask(e.target.value))} maxW="240px" />
-          <Select borderRadius="md" placeholder="Papel" value={filterRole} onChange={(e)=>setFilterRole(e.target.value)} maxW="180px">
+        <HStack justify="space-between" mb={4}>
+          <HStack>
+            <Icon name='user' />
+            <Text fontSize="xl" fontWeight={700}>Usuários</Text>
+          </HStack>
+          <Button variant='secondary' leftIcon={<Icon name='plus' size={16} />} onClick={openCreate}>Adicionar</Button>
+        </HStack>
+        <HStack justify="space-between" mb={2}><Text fontWeight={700}>Filtros</Text></HStack>
+        <HStack wrap="wrap" spacing={4}>
+          <Input placeholder="Nome" value={filterName} onChange={(e)=>setFilterName(e.target.value)} maxW="220px" />
+          <Input placeholder="Email" type="email" value={filterEmail} onChange={(e)=>setFilterEmail(emailMask(e.target.value))} maxW="260px" />
+          <Select placeholder="Papel" value={filterRole} onChange={(e)=>setFilterRole(e.target.value)} maxW="200px">
             <option value="admin">Administrador</option>
             <option value="attendant">Atendente</option>
             <option value="developer">Desenvolvedor</option>
           </Select>
-          <Button borderRadius="md" onClick={()=>{ setUsers([]); setNextToken(null); loadPage(null); }}>Buscar</Button>
-          <Button borderRadius="md" variant='outline' onClick={()=>{ setFilterName(''); setFilterEmail(''); setFilterRole(''); }}>Limpar</Button>
-          <Button borderRadius="md" colorScheme="blue" onClick={openCreate}>Adicionar</Button>
+          <Button leftIcon={<Icon name='search' size={16} />} onClick={()=>{ setUsers([]); setNextToken(null); loadPage(null); }}>Buscar</Button>
+          <Button variant='outline' onClick={()=>{ setFilterName(''); setFilterEmail(''); setFilterRole(''); }}>Limpar</Button>
         </HStack>
 
         {error && <Box color="red.500" mt={3}>{error}</Box>}
 
         {loading && (<Center py={12}><Spinner /></Center>)}
         {!loading && (
-        <Table size="sm" variant="simple" mt={4}>
+        <Table size="md" variant="simple" mt={5}>
           <Thead><Tr><Th>Nome</Th><Th>Email</Th><Th>Papel</Th><Th textAlign="right">Ações</Th></Tr></Thead>
           <Tbody>
             {filtered.map(u => (
@@ -123,8 +130,8 @@ export default function UsersPage() {
                 <Td>{labelForRole(u.role)}</Td>
                 <Td textAlign="right">
                   <HStack justify="flex-end" spacing={2}>
-                    <Button size="xs" borderRadius="md" onClick={()=>openEdit(u)}>Editar</Button>
-                    <Button size="xs" borderRadius="md" variant="outline" colorScheme='red' onClick={()=>setDeleteUid(u.uid)}>Excluir</Button>
+                    <Button size="sm" leftIcon={<Icon name='edit' size={16} />} onClick={()=>openEdit(u)}>Editar</Button>
+                    <Button size="sm" variant="outline" leftIcon={<Icon name='trash' size={16} />} colorScheme='red' onClick={()=>setDeleteUid(u.uid)}>Excluir</Button>
                   </HStack>
                 </Td>
               </Tr>

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from 'react';
+import { Icon } from '@/components/Icon';
 import { Box, Button, Heading, HStack, Select, Stat, StatLabel, StatNumber, Text, VStack } from '@chakra-ui/react';
 import VideoCanvas from '@/components/VideoCanvas';
 import LivenessHint from '@/components/LivenessHint';
@@ -44,9 +45,12 @@ export default function KioskPage() {
   }
 
   return (
-    <VStack p={6} spacing={6} align="stretch">
-      <Heading size="md">Kiosque</Heading>
-      <Text>Reconhecimento facial 1:N e check-in automático</Text>
+    <VStack p={8} spacing={8} align="stretch">
+      <HStack>
+        <Icon name='monitor' />
+        <Heading size="lg">Kiosque</Heading>
+      </HStack>
+      <Text color="gray.700">Reconhecimento facial 1:N e check-in automático</Text>
       <VideoCanvas onReady={(v)=>{
         const tick = async () => { await onFrame(v); requestAnimationFrame(tick); };
         tick();
@@ -67,7 +71,7 @@ export default function KioskPage() {
           <Select placeholder="Aluno" value={manualStudentId} onChange={(e)=>setManualStudentId(e.target.value)}>
             {students.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </Select>
-          <Button onClick={manualCheckIn} variant="outline">Check-in</Button>
+          <Button onClick={manualCheckIn} variant="secondary">Check-in</Button>
         </HStack>
       </Box>
       <Text fontSize="sm" color="gray.500">Se necessário, faça check-in manual pelo admin.</Text>

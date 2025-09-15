@@ -1,5 +1,7 @@
 "use client";
 import PageCard from '@/components/PageCard';
+import { Icon } from '@/components/Icon';
+
 import { db } from '@/lib/firebase';
 import { Button, Checkbox, FormControl, FormErrorMessage, HStack, Input, Select, Text, VStack, useToast } from '@chakra-ui/react';
 import { addDoc, collection, getDocs } from 'firebase/firestore';
@@ -47,8 +49,11 @@ export default function NewStudentPage() {
 
   return (
     <PageCard>
-      <VStack align="stretch" spacing={4}>
-        <Text fontSize="lg" fontWeight={600}>Cadastro de aluno</Text>
+      <VStack align="stretch" spacing={6}>
+        <HStack>
+          <Icon name='users' />
+          <Text fontSize="xl" fontWeight={700}>Cadastro de aluno</Text>
+        </HStack>
         <HStack spacing={3} wrap="wrap">
           <FormControl isInvalid={!!nameErr} isRequired>
             <Input placeholder="Nome" value={name} onChange={(e)=>{ setName(e.target.value); if (nameErr) setNameErr(undefined); }} onBlur={()=>{ if (!name || name.trim().length<2) setNameErr('Nome obrigatório'); }} />
@@ -65,7 +70,7 @@ export default function NewStudentPage() {
         </HStack>
         <HStack justify="flex-end">
           <Button variant="ghost" onClick={()=>router.push('/admin/students')}>Cancelar</Button>
-          <Button colorScheme="blue" onClick={save} isLoading={saving}>Salvar</Button>
+          <Button variant="secondary" onClick={save} isLoading={saving}>Salvar</Button>
         </HStack>
       </VStack>
     </PageCard>

@@ -7,6 +7,8 @@ import { collection, deleteDoc, doc, onSnapshot, orderBy, query } from 'firebase
 import { useEffect, useMemo, useRef, useState } from 'react';
 import PageCard from '@/components/PageCard';
 
+import { Icon } from '@/components/Icon';
+
 type Plan = { id: string; name: string; price: number };
 
 export default function PlansPage() {
@@ -48,15 +50,20 @@ export default function PlansPage() {
   }
 
   return (
-    <VStack align="stretch" spacing={6}>
+    <VStack align="stretch" spacing={8}>
       <PageCard>
-        <Text fontSize="lg" fontWeight={600} mb={3}>Planos</Text>
-        <HStack justify="space-between" mb={2}><Text fontWeight={600}>Filtros</Text></HStack>
-        <HStack spacing={3} wrap="wrap">
+        <HStack justify="space-between" mb={4}>
+          <HStack>
+            <Icon name='folder' />
+            <Text fontSize="xl" fontWeight={700}>Planos</Text>
+          </HStack>
+          <Button variant="secondary" leftIcon={<Icon name='plus' size={16} />} onClick={() => router.push('/admin/plans/new')}>Adicionar</Button>
+        </HStack>
+        <HStack justify="space-between" mb={2}><Text fontWeight={700}>Filtros</Text></HStack>
+        <HStack spacing={4} wrap="wrap">
           <Input placeholder="Nome" value={filterName} onChange={(e) => setFilterName(e.target.value)} maxW="240px" />
-          <Button borderRadius="md" onClick={() => {}}>Buscar</Button>
-          <Button variant="outline" borderRadius="md" onClick={() => setFilterName('')}>Limpar</Button>
-          <Button borderRadius="md" colorScheme="blue" onClick={() => router.push('/admin/plans/new')}>Adicionar</Button>
+          <Button leftIcon={<Icon name='search' size={16} />} onClick={() => {}}>Buscar</Button>
+          <Button variant="outline" onClick={()=>setFilterName('')}>Limpar</Button>
         </HStack>
 
         {loading ? (
@@ -66,7 +73,7 @@ export default function PlansPage() {
         ) : filtered.length === 0 ? (
           <Center py={6}><Text color="gray.500">Nada encontrado</Text></Center>
         ) : (
-          <Table size="sm" mt={4}>
+          <Table size="md" mt={5}>
             <Thead><Tr><Th>Nome</Th><Th>Preço</Th><Th textAlign="right">Ações</Th></Tr></Thead>
             <Tbody>
               {filtered.map(p => (
@@ -75,8 +82,8 @@ export default function PlansPage() {
                   <Td>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.price || 0)}</Td>
                   <Td textAlign="right">
                     <HStack justify="flex-end" spacing={2}>
-                      <Button size="xs" as={Link} href={`/admin/plans/${p.id}/edit` as any}>Editar</Button>
-                      <Button size="xs" variant="outline" colorScheme='red' onClick={() => setDeleteId(p.id)}>Excluir</Button>
+                      <Button size="sm" leftIcon={<Icon name='edit' size={16} />} as={Link} href={`/admin/plans/${p.id}/edit` as any}>Editar</Button>
+                      <Button size="sm" variant="outline" leftIcon={<Icon name='trash' size={16} />} colorScheme='red' onClick={() => setDeleteId(p.id)}>Excluir</Button>
                     </HStack>
                   </Td>
                 </Tr>

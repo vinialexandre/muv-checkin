@@ -1,5 +1,7 @@
 "use client";
 import PageCard from '@/components/PageCard';
+import { Icon } from '@/components/Icon';
+
 import { Button, HStack, Input, Select, Text, VStack, useToast, FormControl, FormErrorMessage, InputGroup, InputRightElement, IconButton } from '@chakra-ui/react';
 import * as yup from 'yup';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -41,8 +43,11 @@ export default function NewUserPage() {
 
   return (
     <PageCard>
-      <VStack align="stretch" spacing={4}>
-        <Text fontSize="lg" fontWeight={600}>Cadastro de usuário</Text>
+      <VStack align="stretch" spacing={6}>
+        <HStack>
+          <Icon name='user' />
+          <Text fontSize="xl" fontWeight={700}>Cadastro de usuário</Text>
+        </HStack>
         <HStack spacing={3} wrap="wrap">
           <Controller name="displayName" control={control} render={({ field }) => (
             <FormControl isInvalid={!!errors.displayName} isRequired>
@@ -86,7 +91,7 @@ export default function NewUserPage() {
         </HStack>
         <HStack justify="flex-end">
           <Button variant="ghost" borderRadius="md" onClick={()=>router.push('/admin/users')}>Cancelar</Button>
-          <Button colorScheme="blue" borderRadius="md" onClick={save} isDisabled={!isValid || isSubmitting} isLoading={isSubmitting}>Salvar</Button>
+          <Button variant="secondary" borderRadius="md" onClick={save} isDisabled={!isValid || isSubmitting} isLoading={isSubmitting}>Salvar</Button>
         </HStack>
       </VStack>
     </PageCard>

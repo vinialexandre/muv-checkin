@@ -3,6 +3,8 @@ import PageCard from '@/components/PageCard';
 import { db } from '@/lib/firebase';
 import { Student } from '@/lib/firestore';
 import { AlertDialog, AlertDialogBody, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogOverlay, Badge, Button, Center, HStack, Input, Select, Spinner, Table, Tbody, Td, Text, Th, Thead, Tr, VStack, useToast } from '@chakra-ui/react';
+import { Icon } from '@/components/Icon';
+
 import { collection, deleteDoc, doc, getDocs, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -64,11 +66,17 @@ export default function StudentsPage() {
   function openEdit(id: string) { router.push(`/admin/students/${id}/edit`); }
 
   return (
-    <VStack align="stretch" spacing={6}>
+    <VStack align="stretch" spacing={8}>
       <PageCard>
-        <Text fontSize="lg" fontWeight={600} mb={3}>Alunos</Text>
+        <HStack justify="space-between" mb={4}>
+          <HStack>
+            <Icon name='users' />
+            <Text fontSize="xl" fontWeight={700}>Alunos</Text>
+          </HStack>
+          <Button variant="secondary" leftIcon={<Icon name='plus' size={16} />} onClick={openCreate}>Adicionar</Button>
+        </HStack>
         <HStack justify="space-between" mb={2}><Text fontWeight={600}>Filtros</Text></HStack>
-        <HStack wrap="wrap" spacing={3}>
+        <HStack wrap="wrap" spacing={4}>
           <Input placeholder="Nome" value={filterName} onChange={(e)=>setFilterName(e.target.value)} maxW="240px" />
           <Select placeholder="Plano" value={filterPlanId} onChange={(e)=>setFilterPlanId(e.target.value)} maxW="240px">
             {plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -78,9 +86,8 @@ export default function StudentsPage() {
             <option value="inactive">Inativo</option>
             <option value="all">Todos</option>
           </Select>
-          <Button onClick={()=>{ /* no-op: filtros já aplicam em tempo real */ }}>Buscar</Button>
+          <Button leftIcon={<Icon name='search' size={16} />} onClick={()=>{ /* no-op: filtros já aplicam em tempo real */ }}>Buscar</Button>
           <Button variant="outline" onClick={()=>{ setFilterName(''); setFilterPlanId(''); setFilterStatus(filterAll); }}>Limpar</Button>
-          <Button colorScheme="blue" onClick={openCreate}>Adicionar</Button>
         </HStack>
 
         {loading ? (
@@ -90,7 +97,7 @@ export default function StudentsPage() {
         ) : filtered.length === 0 ? (
           <Center py={6}><Text color="gray.500">Nada encontrado</Text></Center>
         ) : (
-          <Table size="sm" mt={4}>
+          <Table size="md" mt={5}>
             <Thead><Tr><Th>Nome</Th><Th>Plano</Th><Th>Status</Th><Th textAlign="right">Ações</Th></Tr></Thead>
             <Tbody>
               {filtered.map(s => (
@@ -100,8 +107,8 @@ export default function StudentsPage() {
                   <Td>{s.active ? <Badge>Ativo</Badge> : <Badge colorScheme='red'>Inativo</Badge>}</Td>
                   <Td textAlign="right">
                     <HStack justify="flex-end" spacing={2}>
-                      <Button size="xs" onClick={()=>openEdit(s.id)}>Editar</Button>
-                      <Button size="xs" variant="outline" colorScheme='red' onClick={()=>setDeleteId(s.id)}>Excluir</Button>
+                      <Button size="sm" leftIcon={<Icon name='edit' size={16} />} onClick={()=>openEdit(s.id)}>Editar</Button>
+                      <Button size="sm" variant="outline" leftIcon={<Icon name='trash' size={16} />} colorScheme='red' onClick={()=>setDeleteId(s.id)}>Excluir</Button>
                     </HStack>
                   </Td>
                 </Tr>

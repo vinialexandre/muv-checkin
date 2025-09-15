@@ -14,7 +14,12 @@ const config = {
 };
 
 const app = getApps().length ? getApps()[0] : initializeApp(config);
+
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+  console.log('Firebase initialized for development');
+}
 

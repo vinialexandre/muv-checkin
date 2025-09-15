@@ -1,7 +1,7 @@
 "use client";
 import { auth } from '@/lib/firebase';
-import { Button, Card, CardBody, FormControl, FormLabel, Heading, Input, Stack, Text } from '@chakra-ui/react';
-import { signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
+import { Button, Card, CardBody, FormControl, FormLabel, Heading, Input, Stack, Text, useToast } from '@chakra-ui/react';
+import { signInWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail } from 'firebase/auth';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -10,6 +10,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string|undefined>();
   const router = useRouter();
+  const toast = useToast();
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -39,6 +40,39 @@ export default function LoginPage() {
     }
   };
 
+  const forgot = async () => {
+    setError(undefined);
+    if (!email) { setError('Informe seu email para recuperar a senha.'); return; }
+    try {
+      // Configurar para usar nossa página customizada de redefinição
+      const actionCodeSettings = {
+        url: `${window.location.origin}/reset-password`,
+        handleCodeInApp: true,
+      };
+
+      await sendPasswordResetEmail(auth, email, actionCodeSettings);
+      toast({
+        title: 'Email de recuperação enviado',
+        description: 'Verifique sua caixa de entrada e spam.',
+        status: 'success',
+        duration: 5000,
+        isClosable: true,
+      });
+    } catch (e: any) {
+      let errorMessage = 'Erro ao enviar email de recuperação.';
+
+      if (e.code === 'auth/user-not-found') {
+        errorMessage = 'Usuário não encontrado com este email.';
+      } else if (e.code === 'auth/invalid-email') {
+        errorMessage = 'Email inválido.';
+      } else if (e.code === 'auth/too-many-requests') {
+        errorMessage = 'Muitas tentativas. Tente novamente mais tarde.';
+      }
+
+      setError(errorMessage);
+    }
+  };
+
   return (
     <Stack align="center" mt={24}>
       <Card w="sm" variant="outline">
@@ -53,6 +87,7 @@ export default function LoginPage() {
             <Input value={password} onChange={(e)=>setPassword(e.target.value)} type="password" />
           </FormControl>
           {error && <Text color="red.500" mb={2}>{error}</Text>}
+          <Button variant="link" size="sm" onClick={forgot} mb={2}>Esqueceu a senha?</Button>
           <Button onClick={submit} w="full">Entrar</Button>
         </CardBody>
       </Card>

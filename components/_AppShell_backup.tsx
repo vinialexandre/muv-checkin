@@ -9,8 +9,6 @@ import { useEffect, useState } from 'react';
 const navItems = [
   { href: '/admin/students', label: 'Alunos', icon: 'ðŸ‘¥' },
   { href: '/admin/plans', label: 'Planos', icon: 'ðŸ—‚' },
-  { href: '/admin/classes', label: 'Aulas', icon: 'ðŸ“…' },
-  { href: '/admin/reports', label: 'RelatÃ³rios', icon: 'ðŸ“„' },
   { href: '/kiosk', label: 'Kiosque', icon: 'ðŸ–¥' },
   { href: '/admin/users', label: 'UsuÃ¡rios', icon: 'ðŸ‘¤' },
 ];

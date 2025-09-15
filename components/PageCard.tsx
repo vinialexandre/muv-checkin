@@ -3,9 +3,8 @@ import { Box } from '@chakra-ui/react';
 
 export default function PageCard({ children }: { children: React.ReactNode }) {
   return (
-    <Box bg="white" borderRadius="md" borderWidth="1px" px={4} py={4} boxShadow="sm">
+    <Box bg="brand.primary" borderRadius="lg" borderWidth="1px" borderColor="gray.200" px={6} py={6} boxShadow="md">
       {children}
     </Box>
   );
 }
-
