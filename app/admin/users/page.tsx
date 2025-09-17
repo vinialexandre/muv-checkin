@@ -73,7 +73,7 @@ export default function UsersPage() {
     try {
       const res = await fetch('/api/users/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ uid: deleteUid }) });
       if (!res.ok) { const b = await res.json().catch(()=>({})); throw new Error(b?.error || `Erro ${res.status}`); }
-      toast({ title:'UsuÃƒÂ¡rio excluÃƒÂ­do', status:'info' });
+      toast({ title:'Usuário excluído', status:'info' });
       setDeleteUid(undefined); setUsers([]); setNextToken(null); await loadPage(null);
     } catch (e:any) {
       toast({ title:'Erro ao excluir', description: String(e?.message||e), status:'error' });
@@ -146,8 +146,8 @@ export default function UsersPage() {
       <AlertDialog isOpen={!!deleteUid} leastDestructiveRef={cancelRef} onClose={()=>setDeleteUid(undefined)}>
         <AlertDialogOverlay />
         <AlertDialogContent>
-          <AlertDialogHeader>Confirmar exclusÃƒÂ£o</AlertDialogHeader>
-          <AlertDialogBody>Tem certeza que deseja excluir este usuÃƒÂ¡rio?</AlertDialogBody>
+          <AlertDialogHeader>Confirmar exclusão</AlertDialogHeader>
+          <AlertDialogBody>Tem certeza que deseja excluir este Usuário?</AlertDialogBody>
           <AlertDialogFooter>
             <Button ref={cancelRef as any} onClick={()=>setDeleteUid(undefined)}>Cancelar</Button>
             <Button colorScheme='red' ml={3} onClick={confirmDelete}>Excluir</Button>

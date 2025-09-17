@@ -64,6 +64,7 @@ export default function StudentsPage() {
 
   function openCreate() { router.push('/admin/students/new'); }
   function openEdit(id: string) { router.push(`/admin/students/${id}/edit`); }
+  function openFace(id: string) { router.push(`/admin/students/${id}/face`); }
 
   return (
     <VStack align="stretch" spacing={8}>
@@ -108,6 +109,7 @@ export default function StudentsPage() {
                   <Td textAlign="right">
                     <HStack justify="flex-end" spacing={2}>
                       <Button size="sm" leftIcon={<Icon name='edit' size={16} />} onClick={()=>openEdit(s.id)}>Editar</Button>
+                      <Button size="sm" variant="outline" leftIcon={<Icon name='camera' size={16} />} onClick={()=>openFace(s.id)}>Biometria facial</Button>
                       <Button size="sm" variant="outline" leftIcon={<Icon name='trash' size={16} />} colorScheme='red' onClick={()=>setDeleteId(s.id)}>Excluir</Button>
                     </HStack>
                   </Td>

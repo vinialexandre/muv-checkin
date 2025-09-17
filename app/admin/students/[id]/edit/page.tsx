@@ -3,11 +3,16 @@ import PageCard from '@/components/PageCard';
 import { Icon } from '@/components/Icon';
 
 import { db } from '@/lib/firebase';
-import { Button, Checkbox, FormControl, FormErrorMessage, HStack, Input, Select, Text, VStack, useToast } from '@chakra-ui/react';
-import { collection, doc, getDoc, getDocs, updateDoc } from 'firebase/firestore';
+import { Button, Checkbox, FormControl, FormErrorMessage, HStack, Input, Select, Text, VStack, useToast, Badge } from '@chakra-ui/react';
+import { collection, deleteField, doc, getDoc, getDocs, updateDoc } from 'firebase/firestore';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { IMaskInput } from 'react-imask';
+import VideoCanvas from '@/components/VideoCanvas';
+import { loadFaceModels } from '@/lib/face/loadModels';
+import { getEmbeddingFor, centroid } from '@/lib/face/match1vN';
+import LivenessHint from '@/components/LivenessHint';
+import { simpleLiveness } from '@/lib/face/liveness';
 
 type Plan = { id: string; name: string };
 
@@ -24,6 +29,15 @@ export default function EditStudentPage() {
   const [phoneErr, setPhoneErr] = useState<string|undefined>();
   const [saving, setSaving] = useState(false);
 
+  // Face enrollment state
+  const [faceReady, setFaceReady] = useState(false);
+  const [faceErr, setFaceErr] = useState<string|undefined>();
+  const [video, setVideo] = useState<HTMLVideoElement|null>(null);
+  const [livenessOk, setLivenessOk] = useState(false);
+  const [samples, setSamples] = useState<number[][]>([]);
+  const [savingFace, setSavingFace] = useState(false);
+  const [existingSamples, setExistingSamples] = useState<number>(0);
+
   useEffect(()=>{
     getDocs(collection(db,'plans')).then(s => setPlans(s.docs.map(d => ({ id: d.id, ...(d.data() as any) }))));
   }, []);
@@ -36,8 +50,24 @@ export default function EditStudentPage() {
       setPhone(data?.phone||'');
       setActive(!!data?.active);
       setActivePlanId(data?.activePlanId||'');
+      const dcount = Array.isArray(data?.descriptors) ? data.descriptors.length : 0;
+      setExistingSamples(dcount);
     })();
   }, [id]);
+
+  useEffect(()=>{ loadFaceModels().then(()=>setFaceReady(true)).catch((e)=>{ setFaceErr('Modelos de face não encontrados. Coloque os arquivos em /public/models ou permita acesso à CDN.'); console.error(e); }); }, []);
+  // liveness loop when video available
+  useEffect(()=>{
+    let raf: number|undefined;
+    const tick = async () => {
+      if (video && faceReady) {
+        try { const lv = await simpleLiveness(video); setLivenessOk(lv.blinked && lv.turned); } catch {}
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    if (video) { raf = requestAnimationFrame(tick); }
+    return () => { if (raf) cancelAnimationFrame(raf); };
+  }, [video, faceReady]);
 
   function validate(): boolean {
     let ok = true;
@@ -49,9 +79,19 @@ export default function EditStudentPage() {
 
   async function save() {
     if (!validate()) return;
+    // Enforce biometrics: must have existing or new samples
+    if (existingSamples === 0 && samples.length < 3) {
+      toast({ title:'Biometria facial obrigatória', description:'Colete ao menos 3 amostras e salve', status:'warning' });
+      return;
+    }
     setSaving(true);
     try {
-      await updateDoc(doc(db,'students', id), { name, phone, active, activePlanId: activePlanId || undefined });
+      const update: any = { name, phone, active, activePlanId: activePlanId || undefined };
+      if (samples.length >= 3) {
+        update.descriptors = samples;
+        update.centroid = centroid(samples);
+      }
+      await updateDoc(doc(db,'students', id), update);
       toast({ title:'Aluno atualizado', status:'success' });
       router.push('/admin/students');
     } finally {
@@ -59,32 +99,99 @@ export default function EditStudentPage() {
     }
   }
 
+  async function captureSample() {
+    if (!video || !faceReady) return;
+    const emb = await getEmbeddingFor(video);
+    if (!emb) { toast({ title:'Rosto não detectado', status:'warning' }); return; }
+    const arr = Array.from(emb) as number[];
+    setSamples(prev => [...prev, arr]);
+  }
+
+  async function saveBiometrics() {
+    if (!samples.length) return;
+    setSavingFace(true);
+    try {
+      const cent = centroid(samples);
+      await updateDoc(doc(db,'students', id), { descriptors: samples, centroid: cent });
+      setExistingSamples(samples.length);
+      setSamples([]);
+      toast({ title:'Biometria salva', status:'success' });
+    } catch (e:any) {
+      toast({ title:'Erro ao salvar biometria', description: String(e?.message||e), status:'error' });
+    } finally {
+      setSavingFace(false);
+    }
+  }
+
+  async function clearBiometrics() {
+    setSavingFace(true);
+    try {
+      await updateDoc(doc(db,'students', id), { descriptors: deleteField(), centroid: deleteField() });
+      setExistingSamples(0);
+      setSamples([]);
+      toast({ title:'Biometria removida', status:'info' });
+    } catch (e:any) {
+      toast({ title:'Erro ao remover biometria', description: String(e?.message||e), status:'error' });
+    } finally {
+      setSavingFace(false);
+    }
+  }
+
   return (
-    <PageCard>
-      <VStack align="stretch" spacing={6}>
-        <HStack>
-          <Icon name='users' />
-          <Text fontSize="xl" fontWeight={700}>Edição de aluno</Text>
-        </HStack>
-        <HStack spacing={3} wrap="wrap">
-          <FormControl isInvalid={!!nameErr} isRequired>
-            <Input placeholder="Nome" value={name} onChange={(e)=>{ setName(e.target.value); if (nameErr) setNameErr(undefined); }} onBlur={()=>{ if (!name || name.trim().length<2) setNameErr('Nome obrigatório'); }} />
-            <FormErrorMessage>{nameErr}</FormErrorMessage>
-          </FormControl>
-          <FormControl isInvalid={!!phoneErr}>
-            <Input as={IMaskInput as any} mask="(00) 00000-0000" placeholder="Telefone" value={phone as any} onAccept={(val:any)=>{ setPhone(val); if (phoneErr) setPhoneErr(undefined); }} onBlur={()=>{ const d=(phone||'').replace(/\D/g,''); if (d && !(d.length===10||d.length===11)) setPhoneErr('Telefone inválido'); }} />
-            <FormErrorMessage>{phoneErr}</FormErrorMessage>
-          </FormControl>
-          <Select placeholder="Plano" value={activePlanId} onChange={(e)=>setActivePlanId(e.target.value)} maxW="240px">
-            {plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </Select>
-          <Checkbox isChecked={active} onChange={(e)=>setActive(e.target.checked)}>Ativo</Checkbox>
-        </HStack>
-        <HStack justify="flex-end">
-          <Button variant="ghost" onClick={()=>router.push('/admin/students')}>Cancelar</Button>
-          <Button variant="secondary" onClick={save} isLoading={saving}>Salvar</Button>
-        </HStack>
-      </VStack>
-    </PageCard>
+    <VStack align="stretch" spacing={6}>
+      <PageCard>
+        <VStack align="stretch" spacing={6}>
+          <HStack>
+            <Icon name='users' />
+            <Text fontSize="xl" fontWeight={700}>Edição de aluno</Text>
+          </HStack>
+          <HStack spacing={3} wrap="wrap">
+            <FormControl isInvalid={!!nameErr} isRequired>
+              <Input placeholder="Nome" value={name} onChange={(e)=>{ setName(e.target.value); if (nameErr) setNameErr(undefined); }} onBlur={()=>{ if (!name || name.trim().length<2) setNameErr('Nome obrigatório'); }} />
+              <FormErrorMessage>{nameErr}</FormErrorMessage>
+            </FormControl>
+            <FormControl isInvalid={!!phoneErr}>
+              <Input as={IMaskInput as any} mask="(00) 00000-0000" placeholder="Telefone" value={phone as any} onAccept={(val:any)=>{ setPhone(val); if (phoneErr) setPhoneErr(undefined); }} onBlur={()=>{ const d=(phone||'').replace(/\D/g,''); if (d && !(d.length===10||d.length===11)) setPhoneErr('Telefone inválido'); }} />
+              <FormErrorMessage>{phoneErr}</FormErrorMessage>
+            </FormControl>
+            <Select placeholder="Plano" value={activePlanId} onChange={(e)=>setActivePlanId(e.target.value)} maxW="240px">
+              {plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </Select>
+            <Checkbox isChecked={active} onChange={(e)=>setActive(e.target.checked)}>Ativo</Checkbox>
+          </HStack>
+        </VStack>
+      </PageCard>
+
+      <PageCard>
+        <VStack align="stretch" spacing={4}>
+          <HStack justify="space-between" align="center">
+            <HStack>
+              <Icon name='camera' />
+              <Text fontSize="lg" fontWeight={700}>Biometria facial (obrigatória)</Text>
+            </HStack>
+            <HStack spacing={2}>
+              <Badge colorScheme={faceReady ? 'green' : faceErr ? 'red' : 'gray'}>
+                Modelos {faceReady ? 'OK' : faceErr ? 'Erro' : 'Carregando'}
+              </Badge>
+              <Badge colorScheme={video ? 'green' : 'gray'}>Câmera {video ? 'OK' : 'Off'}</Badge>
+              <Badge colorScheme={existingSamples>0?'green':'gray'}>{existingSamples>0? `${existingSamples} amostras salvas` : 'Sem biometria'}</Badge>
+            </HStack>
+          </HStack>
+          <Text color="gray.600">Colete ao menos 3 amostras com boa iluminação, centralizando o rosto.</Text>
+          {!!faceErr && <Text color='red.500' fontSize='sm'>{faceErr}</Text>}
+          <VideoCanvas onReady={(v)=>setVideo(v)} />
+          <LivenessHint ok={livenessOk} />
+          <HStack>
+            <Button variant='secondary' onClick={captureSample} isDisabled={!video || !faceReady}>Capturar amostra</Button>
+            <Text color="gray.700">Amostras coletadas: {samples.length}/5</Text>
+          </HStack>
+        </VStack>
+      </PageCard>
+
+      <HStack justify="flex-end">
+        <Button variant="ghost" onClick={()=>router.push('/admin/students')}>Cancelar</Button>
+        <Button variant="secondary" onClick={save} isLoading={saving} isDisabled={existingSamples===0 && samples.length<3}>Salvar</Button>
+      </HStack>
+    </VStack>
   );
 }

@@ -35,20 +35,34 @@ Regras de idempotência e janela de tempo estão em `lib/firestore.ts`.
 ## Configuração
 
 1. Copie `.env.example` para `.env.local` e preencha as variáveis do Firebase (Web) e Admin SDK.
-2. Coloque os arquivos de modelo do face-api em `public/models` (veja abaixo).
+2. Coloque os arquivos de modelo do face-api em `public/models` (veja abaixo). Você pode automatizar com `npm run models`.
 3. Instale e rode:
    - `npm i`
    - `npm run dev`
 
-### Modelos de Face
+### Modelos de Face (face-api.js)
 
-Baixe os modelos compatíveis com `@vladmandic/face-api` e coloque em `public/models`:
+Opção A — Baixar localmente (recomendado em produção)
 
-- `tiny_face_detector_model-weights_manifest.json` + shards
-- `face_landmark_68_model-weights_manifest.json` + shards
-- `face_recognition_model-weights_manifest.json` + shards
+1. Rode o script: `npm run models` (usa jsDelivr para baixar)
+2. Verifique `public/models` com os arquivos:
+   - `tiny_face_detector_model-weights_manifest.json` (+ shards)
+   - `face_landmark_68_model-weights_manifest.json` (+ shards)
+   - `face_recognition_model-weights_manifest.json` (+ shards)
 
-Você pode alterar o caminho base com `NEXT_PUBLIC_FACE_MODELS_PATH`.
+Opção B — CDN (rápido para desenvolvimento)
+
+- Defina no `.env.local`:
+  - `NEXT_PUBLIC_FACE_MODELS_PATH=https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights`
+
+Backend do TensorFlow (webgl/cpu)
+
+- Opcional: force via `.env.local`: `NEXT_PUBLIC_TF_BACKEND=webgl` ou `cpu`.
+- O loader tenta `webgl` e cai para `cpu` automaticamente.
+
+Por que não Firebase?
+
+- Esses pesos são arquivos estáticos (iguais para todos). Servi-los como assets em `public/models` (ou CDN próprio) evita CORS/autenticação, reduz latência e é mais simples. Os dados biométricos (descritores/centroide) continuam no Firestore pois são específicos por aluno.
 
 ## Claims de Admin
 
