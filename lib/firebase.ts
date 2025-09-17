@@ -3,6 +3,7 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
+
 const config = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
@@ -17,7 +18,8 @@ const app = getApps().length ? getApps()[0] : initializeApp(config);
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-export const storage = getStorage(app);
+const inferredBucket = ((config.storageBucket && config.storageBucket.length>0) ? config.storageBucket : `${config.projectId}.appspot.com`).replace('.firebasestorage.app', '.appspot.com');
+export const storage = getStorage(app, `gs://${inferredBucket}`);
 
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   console.log('Firebase initialized for development');

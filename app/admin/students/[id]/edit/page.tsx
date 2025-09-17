@@ -2,9 +2,10 @@
 import PageCard from '@/components/PageCard';
 import { Icon } from '@/components/Icon';
 
-import { db } from '@/lib/firebase';
-import { Button, Checkbox, FormControl, FormErrorMessage, HStack, Input, Select, Text, VStack, useToast, Badge } from '@chakra-ui/react';
+import { db, storage } from '@/lib/firebase';
+import { Button, Checkbox, FormControl, FormErrorMessage, HStack, Input, Select, Text, VStack, useToast, Badge, Image, SimpleGrid } from '@chakra-ui/react';
 import { collection, deleteField, doc, getDoc, getDocs, updateDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { IMaskInput } from 'react-imask';
@@ -36,6 +37,10 @@ export default function EditStudentPage() {
   const [livenessOk, setLivenessOk] = useState(false);
   const [samples, setSamples] = useState<number[][]>([]);
   const [savingFace, setSavingFace] = useState(false);
+  const [photoBlobs, setPhotoBlobs] = useState<Blob[]>([]);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
+  const [existingPhotos, setExistingPhotos] = useState<string[]>([]);
+
   const [existingSamples, setExistingSamples] = useState<number>(0);
 
   useEffect(()=>{
@@ -52,6 +57,7 @@ export default function EditStudentPage() {
       setActivePlanId(data?.activePlanId||'');
       const dcount = Array.isArray(data?.descriptors) ? data.descriptors.length : 0;
       setExistingSamples(dcount);
+      setExistingPhotos(Array.isArray(data?.photos) ? data.photos : []);
     })();
   }, [id]);
 
@@ -91,7 +97,21 @@ export default function EditStudentPage() {
         update.descriptors = samples.map(v=>({ v }));
         update.centroid = centroid(samples);
       }
+      if (photoBlobs.length) {
+        const newUrls: string[] = [];
+        for (let i=0;i<photoBlobs.length;i++) {
+          const b = photoBlobs[i];
+          const path = `students/${id}/${Date.now()}-${i}.jpg`;
+          const r = ref(storage, path);
+          await uploadBytes(r, b, { contentType: 'image/jpeg' });
+          const url = await getDownloadURL(r);
+          newUrls.push(url);
+        }
+        update.photos = [...existingPhotos, ...newUrls];
+      }
       await updateDoc(doc(db,'students', id), update);
+      if (photoBlobs.length) { setExistingPhotos(update.photos); setPhotoBlobs([]); setPhotoPreviews([]); }
+      if (samples.length >= 3) { setExistingSamples(samples.length); setSamples([]); }
       toast({ title:'Aluno atualizado', status:'success' });
       router.push('/admin/students');
     } finally {
@@ -99,23 +119,48 @@ export default function EditStudentPage() {
     }
   }
 
+  async function captureCurrentFrameBlob(v: HTMLVideoElement): Promise<{ blob: Blob; dataUrl: string }> {
+    const canvas = document.createElement('canvas');
+    canvas.width = v.videoWidth || 640; canvas.height = v.videoHeight || 480;
+    const ctx = canvas.getContext('2d')!; ctx.drawImage(v,0,0,canvas.width,canvas.height);
+    const blob: Blob = await new Promise((res)=> canvas.toBlob((b)=>res(b as Blob), 'image/jpeg', 0.9));
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    return { blob, dataUrl };
+  }
+
   async function captureSample() {
     if (!video || !faceReady) return;
     const emb = await getEmbeddingFor(video);
     if (!emb) { toast({ title:'Rosto não detectado', status:'warning' }); return; }
-    const arr = Array.from(emb) as number[];
-    setSamples(prev => [...prev, arr]);
+    const { blob, dataUrl } = await captureCurrentFrameBlob(video);
+    setPhotoBlobs(prev => [...prev, blob]);
+    setPhotoPreviews(prev => [...prev, dataUrl]);
+    setSamples(prev => [...prev, Array.from(emb) as number[]]);
   }
 
   async function saveBiometrics() {
-    if (!samples.length) return;
+    if (!samples.length && !photoBlobs.length) return;
     setSavingFace(true);
     try {
-      const cent = centroid(samples);
-      await updateDoc(doc(db,'students', id), { descriptors: samples.map(v=>({ v })), centroid: cent });
-      setExistingSamples(samples.length);
-      setSamples([]);
-      toast({ title:'Biometria salva', status:'success' });
+      const newUrls: string[] = [];
+      for (let i=0;i<photoBlobs.length;i++) {
+        const b = photoBlobs[i];
+        const path = `students/${id}/${Date.now()}-${i}.jpg`;
+        const r = ref(storage, path);
+        await uploadBytes(r, b, { contentType: 'image/jpeg' });
+        const url = await getDownloadURL(r);
+        newUrls.push(url);
+      }
+      const update: any = {};
+      if (samples.length) { update.descriptors = samples.map(v=>({ v })); update.centroid = centroid(samples); }
+      if (newUrls.length) { update.photos = [...existingPhotos, ...newUrls]; }
+      if (Object.keys(update).length) {
+        await updateDoc(doc(db,'students', id), update);
+      }
+      if (newUrls.length) setExistingPhotos(prev => [...prev, ...newUrls]);
+      if (samples.length) { setExistingSamples(samples.length); setSamples([]); }
+      setPhotoBlobs([]); setPhotoPreviews([]);
+      toast({ title:'Dados biométricos atualizados', status:'success' });
     } catch (e:any) {
       toast({ title:'Erro ao salvar biometria', description: String(e?.message||e), status:'error' });
     } finally {
@@ -185,6 +230,27 @@ export default function EditStudentPage() {
             <Button variant='secondary' onClick={captureSample} isDisabled={!video || !faceReady}>Capturar amostra</Button>
             <Text color="gray.700">Amostras coletadas: {samples.length}/5</Text>
           </HStack>
+          {photoPreviews.length>0 && (
+            <VStack align="stretch" spacing={2}>
+              <Text color="gray.700" fontSize="sm">Novas fotos (não salvas ainda)</Text>
+              <SimpleGrid columns={{ base: 3, md: 5 }} spacing={2}>
+                {photoPreviews.map((src, i)=> (
+                  <Image key={`new-${i}`} src={src} alt={`nova ${i+1}`} borderRadius="md" boxSize="96px" objectFit="cover" />
+                ))}
+              </SimpleGrid>
+            </VStack>
+          )}
+          {existingPhotos.length>0 && (
+            <VStack align="stretch" spacing={2}>
+              <Text color="gray.700" fontSize="sm">Fotos salvas</Text>
+              <SimpleGrid columns={{ base: 3, md: 5 }} spacing={2}>
+                {existingPhotos.map((src, i)=> (
+                  <Image key={`old-${i}`} src={src} alt={`salva ${i+1}`} borderRadius="md" boxSize="96px" objectFit="cover" />
+                ))}
+              </SimpleGrid>
+            </VStack>
+          )}
+
         </VStack>
       </PageCard>
 

@@ -2,9 +2,10 @@
 import PageCard from '@/components/PageCard';
 import { Icon } from '@/components/Icon';
 
-import { db } from '@/lib/firebase';
-import { Button, Checkbox, FormControl, FormErrorMessage, HStack, Input, Select, Text, VStack, useToast, Badge } from '@chakra-ui/react';
-import { addDoc, collection, getDocs } from 'firebase/firestore';
+import { db, storage } from '@/lib/firebase';
+import { Button, Checkbox, FormControl, FormErrorMessage, HStack, Input, Select, Text, VStack, useToast, Badge, Image, SimpleGrid } from '@chakra-ui/react';
+import { addDoc, collection, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { IMaskInput } from 'react-imask';
@@ -33,6 +34,9 @@ export default function NewStudentPage() {
   const [video, setVideo] = useState<HTMLVideoElement|null>(null);
   const [livenessOk, setLivenessOk] = useState(false);
   const [samples, setSamples] = useState<number[][]>([]);
+  const [photoBlobs, setPhotoBlobs] = useState<Blob[]>([]);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
+
   const rafRef = useRef<number|undefined>(undefined);
 
   useEffect(()=>{
@@ -64,18 +68,43 @@ export default function NewStudentPage() {
     setSaving(true);
     try {
       const cent = centroid(samples);
-      await addDoc(collection(db,'students'), { name, phone, active, activePlanId: activePlanId || undefined, descriptors: samples.map(v=>({ v })), centroid: cent });
+      // cria o aluno primeiro (sem biometria/fotos) para obter o ID
+      const created = await addDoc(collection(db,'students'), { name, phone, active, activePlanId: activePlanId || undefined });
+      // sobe fotos para o Storage e coleta URLs
+      const photos: string[] = [];
+      for (let i=0;i<photoBlobs.length;i++) {
+        const b = photoBlobs[i];
+        const path = `students/${created.id}/${Date.now()}-${i}.jpg`;
+        const r = ref(storage, path);
+        await uploadBytes(r, b, { contentType: 'image/jpeg' });
+        const url = await getDownloadURL(r); photos.push(url);
+      }
+      await updateDoc(doc(db,'students', created.id), { photos, descriptors: samples.map(v=>({ v })), centroid: cent });
       toast({ title:'Aluno criado', status:'success' });
       router.push('/admin/students');
+    } catch (e:any) {
+      toast({ title:'Erro ao salvar', description: String(e?.message||e), status:'error' });
     } finally {
       setSaving(false);
     }
+  }
+
+  async function captureCurrentFrameBlob(v: HTMLVideoElement): Promise<{ blob: Blob; dataUrl: string }> {
+    const canvas = document.createElement('canvas');
+    canvas.width = v.videoWidth || 640; canvas.height = v.videoHeight || 480;
+    const ctx = canvas.getContext('2d')!; ctx.drawImage(v,0,0,canvas.width,canvas.height);
+    const blob: Blob = await new Promise((res)=> canvas.toBlob((b)=>res(b as Blob), 'image/jpeg', 0.9));
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    return { blob, dataUrl };
   }
 
   async function captureSample() {
     if (!video || !faceReady) return;
     const emb = await getEmbeddingFor(video);
     if (!emb) { toast({ title:'Rosto não detectado', status:'warning' }); return; }
+    const { blob, dataUrl } = await captureCurrentFrameBlob(video);
+    setPhotoBlobs(prev => [...prev, blob]);
+    setPhotoPreviews(prev => [...prev, dataUrl]);
     setSamples(prev => [...prev, Array.from(emb) as number[]]);
   }
 
@@ -127,6 +156,14 @@ export default function NewStudentPage() {
             <Button variant='secondary' onClick={captureSample} isDisabled={!video || !faceReady}>Capturar amostra</Button>
             <Text color="gray.700">Amostras coletadas: {samples.length}/5</Text>
           </HStack>
+          {photoPreviews.length>0 && (
+            <SimpleGrid columns={{ base: 3, md: 5 }} spacing={2}>
+              {photoPreviews.map((src, i)=> (
+                <Image key={i} src={src} alt={`amostra ${i+1}`} borderRadius="md" boxSize="96px" objectFit="cover" />
+              ))}
+            </SimpleGrid>
+          )}
+
         </VStack>
       </PageCard>
 
