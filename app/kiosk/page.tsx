@@ -57,7 +57,7 @@ export default function KioskPage() {
     // Build face index of active students with centroid/descriptors present
     const faceIndex = (students||[])
       .filter((s:any)=> (s.active ?? true) && (s.centroid || (s.descriptors && s.descriptors.length)))
-      .map((s:any)=> ({ id: s.id, name: s.name, centroid: s.centroid, descriptors: s.descriptors }));
+      .map((s:any)=> ({ id: s.id, name: s.name, centroid: s.centroid, descriptors: (s.descriptors||[]).map((d:any)=> Array.isArray(d) ? d : d?.v).filter(Boolean) }));
     if (!faceIndex.length) return;
 
     const match = match1vN(emb, faceIndex as any);

@@ -64,7 +64,7 @@ export default function NewStudentPage() {
     setSaving(true);
     try {
       const cent = centroid(samples);
-      await addDoc(collection(db,'students'), { name, phone, active, activePlanId: activePlanId || undefined, descriptors: samples, centroid: cent });
+      await addDoc(collection(db,'students'), { name, phone, active, activePlanId: activePlanId || undefined, descriptors: samples.map(v=>({ v })), centroid: cent });
       toast({ title:'Aluno criado', status:'success' });
       router.push('/admin/students');
     } finally {

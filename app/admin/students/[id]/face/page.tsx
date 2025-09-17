@@ -68,7 +68,7 @@ export default function FaceEnrollmentPage() {
     setSavingFace(true);
     try {
       const cent = centroid(samples);
-      await updateDoc(doc(db,'students', id), { descriptors: samples, centroid: cent });
+      await updateDoc(doc(db,'students', id), { descriptors: samples.map(v=>({ v })), centroid: cent });
       setExistingSamples(samples.length);
       setSamples([]);
       toast({ title:'Biometria salva', status:'success' });

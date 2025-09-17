@@ -88,7 +88,7 @@ export default function EditStudentPage() {
     try {
       const update: any = { name, phone, active, activePlanId: activePlanId || undefined };
       if (samples.length >= 3) {
-        update.descriptors = samples;
+        update.descriptors = samples.map(v=>({ v }));
         update.centroid = centroid(samples);
       }
       await updateDoc(doc(db,'students', id), update);
@@ -112,7 +112,7 @@ export default function EditStudentPage() {
     setSavingFace(true);
     try {
       const cent = centroid(samples);
-      await updateDoc(doc(db,'students', id), { descriptors: samples, centroid: cent });
+      await updateDoc(doc(db,'students', id), { descriptors: samples.map(v=>({ v })), centroid: cent });
       setExistingSamples(samples.length);
       setSamples([]);
       toast({ title:'Biometria salva', status:'success' });
