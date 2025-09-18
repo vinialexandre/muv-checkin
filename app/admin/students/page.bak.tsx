@@ -30,7 +30,7 @@ export default function StudentsPage() {
       setLoading(false);
     });
     getDocs(collection(db,'plans')).then(s => setPlans(s.docs.map(d => ({ id:d.id, ...(d.data() as any)}))));
-    loadFaceModels().catch(()=>{});
+
     return () => unsub();
   }, []);
 

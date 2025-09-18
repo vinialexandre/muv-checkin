@@ -16,6 +16,9 @@ async function tryLoad(basePath: string) {
 export async function loadFaceModels(basePath = process.env.NEXT_PUBLIC_FACE_MODELS_PATH || '/models') {
   if (isFaceReady()) return true;
   if (loadPromise) return loadPromise;
+
+  // Log para debug
+  console.log('🔄 Iniciando carregamento dos modelos de face-api...');
   loadPromise = (async () => {
     // Ensure TF backend of the same instance used by face-api
     try {
@@ -56,8 +59,17 @@ export async function loadFaceModels(basePath = process.env.NEXT_PUBLIC_FACE_MOD
     }
 
     for (const p of candidates) {
-      try { await tryLoad(p); if (p !== basePath) console.info('Loaded face models from', p); return true; } catch {}
+      try {
+        console.log(`🔄 Tentando carregar modelos de: ${p}`);
+        await tryLoad(p);
+        console.log(`✅ Modelos carregados com sucesso de: ${p}`);
+        if (p !== basePath) console.info('Loaded face models from', p);
+        return true;
+      } catch (e) {
+        console.log(`❌ Falha ao carregar de ${p}:`, e);
+      }
     }
+    console.error('❌ Não foi possível carregar os modelos de nenhuma fonte');
     throw new Error('Unable to load face models from configured sources');
   })();
   return loadPromise;

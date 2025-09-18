@@ -10,7 +10,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { IMaskInput } from 'react-imask';
 import VideoCanvas from '@/components/VideoCanvas';
-import { loadFaceModels } from '@/lib/face/loadModels';
+import { useFaceModels } from '@/lib/face/useFaceModels';
 import { getEmbeddingFor, centroid } from '@/lib/face/match1vN';
 import LivenessHint from '@/components/LivenessHint';
 import { simpleLiveness } from '@/lib/face/liveness';
@@ -21,6 +21,7 @@ export default function EditStudentPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const toast = useToast();
+  const { ready: faceReady, error: faceErr } = useFaceModels();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -31,8 +32,6 @@ export default function EditStudentPage() {
   const [saving, setSaving] = useState(false);
 
   // Face enrollment state
-  const [faceReady, setFaceReady] = useState(false);
-  const [faceErr, setFaceErr] = useState<string|undefined>();
   const [video, setVideo] = useState<HTMLVideoElement|null>(null);
   const [livenessOk, setLivenessOk] = useState(false);
   const [samples, setSamples] = useState<number[][]>([]);
@@ -61,7 +60,7 @@ export default function EditStudentPage() {
     })();
   }, [id]);
 
-  useEffect(()=>{ loadFaceModels().then(()=>setFaceReady(true)).catch((e)=>{ setFaceErr('Modelos de face não encontrados. Coloque os arquivos em /public/models ou permita acesso à CDN.'); console.error(e); }); }, []);
+
   // liveness loop when video available
   useEffect(()=>{
     let raf: number|undefined;

@@ -6,7 +6,7 @@ import { Icon } from '@/components/Icon';
 import { Badge, Button, HStack, Text, VStack, useToast } from '@chakra-ui/react';
 import VideoCanvas from '@/components/VideoCanvas';
 import LivenessHint from '@/components/LivenessHint';
-import { loadFaceModels } from '@/lib/face/loadModels';
+import { useFaceModels } from '@/lib/face/useFaceModels';
 import { centroid, getEmbeddingFor } from '@/lib/face/match1vN';
 import { db } from '@/lib/firebase';
 import { collection, deleteField, doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -15,9 +15,8 @@ export default function FaceEnrollmentPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const toast = useToast();
+  const { ready: faceReady, error: faceErr } = useFaceModels();
   const [studentName, setStudentName] = useState<string>('');
-  const [faceReady, setFaceReady] = useState(false);
-  const [faceErr, setFaceErr] = useState<string|undefined>();
   const [video, setVideo] = useState<HTMLVideoElement|null>(null);
   const [livenessOk, setLivenessOk] = useState(false);
   const [samples, setSamples] = useState<number[][]>([]);
@@ -33,7 +32,7 @@ export default function FaceEnrollmentPage() {
     }).catch(()=>{});
   }, [id]);
 
-  useEffect(()=>{ loadFaceModels().then(()=>setFaceReady(true)).catch((e)=>{ setFaceErr('Modelos de face não encontrados. Coloque os arquivos em /public/models ou permita acesso à CDN.'); console.error(e); }); }, []);
+
 
   // Lightweight liveness heuristic using eye+turn (recomputed via getEmbeddingFor fallback)
   const rafRef = useRef<number|undefined>(undefined);

@@ -12,10 +12,10 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) { router.replace('/login'); return; }
-      const idt = await user.getIdTokenResult(true);
+      const idt = await user.getIdTokenResult();
       const role = (idt.claims as any).role || (idt.claims.admin ? 'admin' : undefined);
       const isPrivileged = role === 'admin' || role === 'developer';
-      const isAttendantAllowed = role === 'attendant' && (pathname?.startsWith('/admin/students') || pathname?.startsWith('/admin/kiosk'));
+      const isAttendantAllowed = role === 'attendant' && (pathname?.startsWith('/admin/students') || pathname?.startsWith('/admin/kiosk') || pathname?.startsWith('/admin/checkins'));
       if (!isPrivileged && !isAttendantAllowed) { router.replace('/login'); return; }
       setReady(true);
     });

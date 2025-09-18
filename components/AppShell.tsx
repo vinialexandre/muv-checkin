@@ -10,6 +10,7 @@ import { Icon, IconName } from '@/components/Icon';
 const navItems: { href: string; label: string; icon: IconName }[] = [
   { href: '/admin/students', label: 'Alunos', icon: 'users' },
   { href: '/admin/plans', label: 'Planos', icon: 'folder' },
+  { href: '/admin/checkins', label: 'Check-ins', icon: 'clock' },
   { href: '/admin/kiosk', label: 'Kiosque', icon: 'monitor' },
   { href: '/admin/users', label: 'Usuários', icon: 'user' },
 ];
@@ -22,7 +23,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) { setRole(undefined); setUserEmail(undefined); return; }
-      const idt = await user.getIdTokenResult(true);
+      const idt = await user.getIdTokenResult();
       const r = (idt.claims as any).role || ((idt.claims as any).admin ? 'admin' : undefined);
       setRole(r);
       setUserEmail(user.email || undefined);
@@ -50,7 +51,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             {navItems
               .filter(item => {
                 if (role === 'attendant') {
-                  return item.href === '/admin/students' || item.href === '/admin/kiosk';
+                  return item.href === '/admin/students' || item.href === '/admin/kiosk' || item.href === '/admin/checkins';
                 }
                 return true;
               })

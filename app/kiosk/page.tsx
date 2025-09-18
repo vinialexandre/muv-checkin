@@ -4,35 +4,29 @@ import { Icon } from '@/components/Icon';
 import { Box, Button, Heading, HStack, Select, Stat, StatLabel, StatNumber, Text, VStack } from '@chakra-ui/react';
 import VideoCanvas from '@/components/VideoCanvas';
 import LivenessHint from '@/components/LivenessHint';
-import { loadFaceModels } from '@/lib/face/loadModels';
+import { useFaceModels } from '@/lib/face/useFaceModels';
 import { getEmbeddingFor, match1vN } from '@/lib/face/match1vN';
-import { canCheckInWindow, createAttendanceOnce } from '@/lib/firestore';
+import { createCheckIn } from '@/lib/firestore';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import PageCard from '@/components/PageCard';
 import { simpleLiveness } from '@/lib/face/liveness';
 
 export default function KioskPage() {
-  const [ready, setReady] = useState(false);
+  const { ready, error: faceError, loading: faceLoading } = useFaceModels();
   const [students, setStudents] = useState<any[]>([]);
-  const [last, setLast] = useState<{name:string; id:string; at: Date; warnLate?: boolean} | null>(null);
-  const [classId, setClassId] = useState<string>('');
+  const [last, setLast] = useState<{name:string; id:string; at: Date; success?: boolean} | null>(null);
   const [livenessOk, setLivenessOk] = useState(false);
   const [manualStudentId, setManualStudentId] = useState<string>('');
   const lastProcessRef = useRef<number>(0);
   const cooldownRef = useRef<Map<string, number>>(new Map());
   const videoRef = useRef<HTMLVideoElement|null>(null);
-
-  useEffect(() => { loadFaceModels().then(()=>setReady(true)); }, []);
   useEffect(() => {
     getDocs(collection(db,'students')).then(s => setStudents(s.docs.map(d=>({ id:d.id, ...(d.data() as any) }))));
   }, []);
-  useEffect(() => { getDocs(collection(db,'classes')).then(s => { const now = new Date(); const current = s.docs.find(d => {
-    const st = (d.data() as any).startsAt.toDate(); const en = (d.data() as any).endsAt.toDate(); return now>=new Date(st.getTime()-10*60*1000) && now<=new Date(st.getTime()+15*60*1000);
-  }); if (current) setClassId(current.id); }); }, []);
 
   async function processFrame(video: HTMLVideoElement) {
-    if (!ready || !classId) return;
+    if (!ready) return;
 
     // Update liveness state every tick (cheap vs detection)
     let isLive = false;
@@ -70,17 +64,17 @@ export default function KioskPage() {
     cooldownRef.current.set(match.studentId, nowTs);
 
     const now = new Date();
-    const windowOk = await canCheckInWindow(classId, now);
-    await createAttendanceOnce({ classId, studentId: match.studentId, when: now, source: 'face' });
-    setLast({ name: match.name, id: match.studentId, at: now, warnLate: !windowOk });
+    const result = await createCheckIn({ studentId: match.studentId, when: now, source: 'face' });
+    setLast({ name: match.name, id: match.studentId, at: now, success: result.created });
   }
 
   async function manualCheckIn() {
-    if (!manualStudentId || !classId) return;
+    if (!manualStudentId) return;
     const now = new Date();
     const s = students.find(s=>s.id===manualStudentId);
-    await createAttendanceOnce({ classId, studentId: manualStudentId, when: now, source: 'manual' });
-    setLast({ name: s?.name || manualStudentId, id: manualStudentId, at: now });
+    const result = await createCheckIn({ studentId: manualStudentId, when: now, source: 'manual' });
+    setLast({ name: s?.name || manualStudentId, id: manualStudentId, at: now, success: result.created });
+    setManualStudentId(''); // Limpa a seleção após o check-in
   }
 
   return (
@@ -91,6 +85,8 @@ export default function KioskPage() {
           <Heading size="lg">Kiosque</Heading>
         </HStack>
         <Text color="gray.700">Reconhecimento facial 1:N e check-in automático</Text>
+        {faceLoading && <Text color="blue.500">🔄 Carregando modelos de reconhecimento facial...</Text>}
+        {faceError && <Text color="red.500">❌ {faceError}</Text>}
         <VideoCanvas onReady={(v)=>{
           videoRef.current = v;
           const tick = async () => { if (videoRef.current) await processFrame(videoRef.current); requestAnimationFrame(tick); };
@@ -102,8 +98,12 @@ export default function KioskPage() {
             <Stat>
               <StatLabel>Último check-in</StatLabel>
               <StatNumber>{last.name}</StatNumber>
+              <Text fontSize="sm" color="gray.500">
+                {last.at.toLocaleTimeString('pt-BR')}
+              </Text>
             </Stat>
-            {last.warnLate && <Text color="red.500">Fora da janela - registrado mesmo assim</Text>}
+            {last.success === false && <Text color="orange.500">Check-in recente - não registrado novamente</Text>}
+            {last.success === true && <Text color="green.500">✓ Check-in registrado com sucesso</Text>}
           </HStack>
         )}
         <Box>
@@ -115,7 +115,9 @@ export default function KioskPage() {
             <Button onClick={manualCheckIn} variant="secondary">Check-in</Button>
           </HStack>
         </Box>
-        <Text fontSize="sm" color="gray.500">Se necessário, faça check-in manual pelo admin.</Text>
+        <Text fontSize="sm" color="gray.500">
+          Sistema simplificado - não requer aulas cadastradas. Check-ins são registrados automaticamente.
+        </Text>
       </VStack>
     </PageCard>
   );
