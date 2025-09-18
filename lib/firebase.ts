@@ -18,8 +18,7 @@ const app = getApps().length ? getApps()[0] : initializeApp(config);
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-const inferredBucket = ((config.storageBucket && config.storageBucket.length>0) ? config.storageBucket : `${config.projectId}.appspot.com`).replace('.firebasestorage.app', '.appspot.com');
-export const storage = getStorage(app, `gs://${inferredBucket}`);
+export const storage = getStorage(app);
 
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   console.log('Firebase initialized for development');
