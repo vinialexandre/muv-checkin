@@ -4,7 +4,7 @@ import { Icon } from '@/components/Icon';
 import { Badge, Box, Button, Heading, HStack, Table, Tbody, Td, Text, Th, Thead, Tr, VStack, useToast } from '@chakra-ui/react';
 import PageCard from '@/components/PageCard';
 import { CheckIn, getRecentCheckIns, exportCheckInsCsvForMonth } from '@/lib/firestore';
-import { collection, getDocs, query, orderBy, limit, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, limit, Timestamp, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 type CheckInWithStudent = CheckIn & {
@@ -24,11 +24,6 @@ export default function CheckInsPage() {
   async function loadData() {
     setLoading(true);
     try {
-      // Carrega estudantes
-      const studentsSnap = await getDocs(collection(db, 'students'));
-      const studentsData = studentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setStudents(studentsData);
-
       // Carrega check-ins recentes (últimos 100)
       const checkInsQuery = query(
         collection(db, 'checkins'),
@@ -36,14 +31,18 @@ export default function CheckInsPage() {
         limit(100)
       );
       const checkInsSnap = await getDocs(checkInsQuery);
-      const checkInsData = checkInsSnap.docs.map(doc => {
-        const data = doc.data() as CheckIn;
-        const student = studentsData.find(s => s.id === data.studentId);
-        return {
-          ...data,
-          studentName: student?.name || 'Aluno não encontrado'
-        };
-      });
+      const checkInsRaw = checkInsSnap.docs.map(d => d.data() as CheckIn);
+      const checkInsData = await Promise.all(
+        checkInsRaw.map(async (c) => {
+          try {
+            const sSnap = await getDoc(doc(db, 'students', c.studentId));
+            const sData = sSnap.exists() ? (sSnap.data() as any) : null;
+            return { ...c, studentName: sData?.name || 'Aluno não encontrado' } as CheckInWithStudent;
+          } catch {
+            return { ...c, studentName: 'Aluno não encontrado' } as CheckInWithStudent;
+          }
+        })
+      );
 
       setCheckIns(checkInsData);
     } catch (error) {

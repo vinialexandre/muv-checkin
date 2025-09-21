@@ -42,14 +42,16 @@ export default function NewStudentPage() {
     getDocs(collection(db,'plans')).then(s => setPlans(s.docs.map(d => ({ id: d.id, ...(d.data() as any) }))));
   }, []);
   useEffect(()=>{
-    const tick = async () => {
-      if (video && faceReady) {
-        try { const lv = await simpleLiveness(video); setLivenessOk(!!(lv.blinked && lv.turned)); } catch {}
-      }
-      rafRef.current = requestAnimationFrame(tick);
-    };
-    rafRef.current = requestAnimationFrame(tick);
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+    if (!video || !faceReady) return;
+    let active = true;
+    let running = false;
+    const id = window.setInterval(async () => {
+      if (!active || running) return;
+      running = true;
+      try { const lv = await simpleLiveness(video); if (active) setLivenessOk(!!(lv.blinked && lv.turned)); } catch {}
+      finally { running = false; }
+    }, 250);
+    return () => { active = false; window.clearInterval(id); };
   }, [video, faceReady]);
 
   function validate(): boolean {

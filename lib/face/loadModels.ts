@@ -1,15 +1,22 @@
-import * as faceapi from '@vladmandic/face-api';
-// Register TFJS backends (webgl/cpu)
-import '@tensorflow/tfjs-backend-webgl';
-import '@tensorflow/tfjs-backend-cpu';
+import '@/lib/polyfills/text-encoder';
 
+let faceapiRef: any | null = null;
 let loadPromise: Promise<boolean> | null = null;
 
+export async function getFaceApi() {
+  if (typeof window === 'undefined') throw new Error('face-api só deve ser carregado no cliente');
+  if (!faceapiRef) {
+    faceapiRef = await import('@vladmandic/face-api/dist/face-api.esm.js');
+  }
+  return faceapiRef as any;
+}
+
 async function tryLoad(basePath: string) {
+  const fa = await getFaceApi();
   await Promise.all([
-    faceapi.nets.tinyFaceDetector.loadFromUri(basePath),
-    faceapi.nets.faceLandmark68Net.loadFromUri(basePath),
-    faceapi.nets.faceRecognitionNet.loadFromUri(basePath),
+    fa.nets.tinyFaceDetector.loadFromUri(basePath),
+    fa.nets.faceLandmark68Net.loadFromUri(basePath),
+    fa.nets.faceRecognitionNet.loadFromUri(basePath),
   ]);
 }
 
@@ -17,12 +24,11 @@ export async function loadFaceModels(basePath = process.env.NEXT_PUBLIC_FACE_MOD
   if (isFaceReady()) return true;
   if (loadPromise) return loadPromise;
 
-  // Log para debug
   console.log('🔄 Iniciando carregamento dos modelos de face-api...');
   loadPromise = (async () => {
-    // Ensure TF backend of the same instance used by face-api
     try {
-      const tf = (faceapi as any).tf;
+      const fa = await getFaceApi();
+      const tf = (fa as any).tf;
       if (tf) {
         const desired = process.env.NEXT_PUBLIC_TF_BACKEND as ('webgl'|'cpu'|undefined);
         if (desired) { try { await tf.setBackend(desired); await tf.ready(); } catch {} }
@@ -31,7 +37,6 @@ export async function loadFaceModels(basePath = process.env.NEXT_PUBLIC_FACE_MOD
       }
     } catch {}
 
-    // If env var points to CDN, try it first to avoid local 404 noise
     const cdnHint = process.env.NEXT_PUBLIC_FACE_MODELS_PATH && process.env.NEXT_PUBLIC_FACE_MODELS_PATH.startsWith('http')
       ? process.env.NEXT_PUBLIC_FACE_MODELS_PATH
       : null;
@@ -40,7 +45,6 @@ export async function loadFaceModels(basePath = process.env.NEXT_PUBLIC_FACE_MOD
     const candidates: string[] = [];
     if (cdnHint && !disableCdn) candidates.push(cdnHint);
 
-    // Check if local files exist with a single HEAD request; only try if present
     async function localExists(path: string) {
       try {
         const r = await fetch(`${path}/tiny_face_detector_model-weights_manifest.json`, { method: 'HEAD' });
@@ -50,7 +54,6 @@ export async function loadFaceModels(basePath = process.env.NEXT_PUBLIC_FACE_MOD
 
     if (await localExists(basePath)) candidates.push(basePath);
 
-    // Fallback CDNs
     if (!disableCdn) {
       candidates.push(
         'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights',
@@ -76,7 +79,11 @@ export async function loadFaceModels(basePath = process.env.NEXT_PUBLIC_FACE_MOD
 }
 
 export function isFaceReady() {
-  return !!faceapi.nets.tinyFaceDetector.params && !!faceapi.nets.faceRecognitionNet.params;
+  const fa = faceapiRef as any;
+  return !!fa && !!fa.nets?.tinyFaceDetector?.params && !!fa.nets?.faceRecognitionNet?.params;
 }
 
-export const tinyOptions = new faceapi.TinyFaceDetectorOptions({ inputSize: 256, scoreThreshold: 0.5 });
+export async function createTinyOptions(inputSize = 256, scoreThreshold = 0.5) {
+  const fa = await getFaceApi();
+  return new fa.TinyFaceDetectorOptions({ inputSize, scoreThreshold });
+}

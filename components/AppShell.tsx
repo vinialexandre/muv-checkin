@@ -1,5 +1,5 @@
 "use client";
-import { Box, Flex, Link as CLink, Button, Text } from '@chakra-ui/react';
+import { Box, Flex, Link as CLink, Button, Text, Image } from '@chakra-ui/react';
 import Link from 'next/link';
 import { signOut, onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -11,7 +11,7 @@ const navItems: { href: string; label: string; icon: IconName }[] = [
   { href: '/admin/students', label: 'Alunos', icon: 'users' },
   { href: '/admin/plans', label: 'Planos', icon: 'folder' },
   { href: '/admin/checkins', label: 'Check-ins', icon: 'clock' },
-  { href: '/admin/kiosk', label: 'Kiosque', icon: 'monitor' },
+  { href: '/kiosk', label: 'Kiosque', icon: 'monitor' },
   { href: '/admin/users', label: 'Usuários', icon: 'user' },
 ];
 
@@ -39,19 +39,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <Flex direction="column" minH="100vh" bg="brand.primary">
       <Flex as='header' bg='brand.primary' borderBottom='1px solid' borderColor='gray.200' h='64px' px={6} align='center' justify='space-between'>
-        <Text fontWeight={700} letterSpacing='0.04em' color='brand.secondary'>MUV</Text>
+        <Image src='/logo-muv.png' alt='MUV' height='60px' width='auto' />
         <Flex align='center' gap={4}>
           {userEmail && <Text fontSize='sm' color='gray.600'>{userEmail}</Text>}
           <Button variant='outline' size='sm' leftIcon={<Icon name='logOut' size={16} />} onClick={() => signOut(auth)}>Sair</Button>
         </Flex>
       </Flex>
       <Flex flex='1' overflow='hidden'>
-        <Flex direction='column' bg='brand.secondary' color='brand.primary' w={collapsed ? '72px' : '264px'} transition='width 0.2s ease' p={4} overflowY='auto'>
+        <Flex direction='column' bg='brand.secondary' color='brand.primary' w={collapsed ? '100px' : '264px'} transition='width 0.2s ease' p={4} overflowY='auto'>
           <Box flex='1'>
             {navItems
               .filter(item => {
                 if (role === 'attendant') {
-                  return item.href === '/admin/students' || item.href === '/admin/kiosk' || item.href === '/admin/checkins';
+                  return item.href === '/admin/students' || item.href === '/kiosk' || item.href === '/admin/checkins';
                 }
                 return true;
               })
@@ -72,6 +72,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     _hover={{ bg: 'rgba(255, 244, 0, 0.16)' }}
                     bg={active ? 'rgba(255, 244, 0, 0.28)' : undefined}
                     color='inherit'
+                    target={item.href === '/kiosk' ? '_blank' : undefined}
+                    rel={item.href === '/kiosk' ? 'noopener noreferrer' : undefined}
                   >
                     <Icon name={item.icon} size={collapsed ? 22 : 18} />
                     {!collapsed && <span>{item.label}</span>}

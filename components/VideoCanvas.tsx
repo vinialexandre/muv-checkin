@@ -1,26 +1,59 @@
 "use client";
 import { useEffect, useRef } from 'react';
 
-export default function VideoCanvas({ onReady }: { onReady?: (video: HTMLVideoElement) => void }) {
+export default function VideoCanvas({ onReady, onError, full }: { onReady?: (video: HTMLVideoElement) => void; onError?: (err: any) => void; full?: boolean }) {
   const ref = useRef<HTMLVideoElement>(null);
+  const onReadyRef = useRef<typeof onReady>(onReady);
+  const onErrorRef = useRef<typeof onError>(onError);
+
+  useEffect(() => { onReadyRef.current = onReady; }, [onReady]);
+  useEffect(() => { onErrorRef.current = onError; }, [onError]);
+
   useEffect(() => {
     let active = true;
-    async function run() {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-      if (!ref.current) return;
-      ref.current.srcObject = stream;
+
+    async function tryGetStream() {
+      const candidates: MediaStreamConstraints[] = [
+        { video: { facingMode: 'user' } },
+        { video: true },
+      ];
       try {
-        await ref.current.play();
-      } catch (e: any) {
-        // Ignore transient AbortError due to hot reload or src changes
-        if (!(e && (e.name === 'AbortError' || String(e).includes('AbortError')))) {
-          console.warn('Video play() failed', e);
+        const devices = await navigator.mediaDevices.enumerateDevices().catch(()=>[] as MediaDeviceInfo[]);
+        const cams = devices.filter(d => d.kind === 'videoinput');
+        if (cams.length) {
+          for (const d of cams) candidates.push({ video: { deviceId: { exact: d.deviceId } } });
+        }
+      } catch {}
+
+      let lastErr: any = null;
+      for (const c of candidates) {
+        try {
+          return await navigator.mediaDevices.getUserMedia(c);
+        } catch (e: any) {
+          lastErr = e;
+          if (!(e?.name === 'NotReadableError' || e?.name === 'OverconstrainedError')) break;
         }
       }
-      if (active && onReady && ref.current) onReady(ref.current);
+      throw lastErr || new Error('Falha ao iniciar câmera');
     }
+
+    async function run() {
+      try {
+        const stream = await tryGetStream();
+        if (!ref.current) { stream.getTracks().forEach(t=>t.stop()); return; }
+        if (ref.current.srcObject) (ref.current.srcObject as MediaStream).getTracks().forEach(t => t.stop());
+        ref.current.srcObject = stream;
+        try { await ref.current.play(); } catch (e: any) { if (!(e && (e.name === 'AbortError' || String(e).includes('AbortError')))) { console.warn('Video play() failed', e); } }
+        if (active && onReadyRef.current && ref.current) onReadyRef.current(ref.current);
+      } catch (e) {
+        console.error('getUserMedia failed', e);
+        if (onErrorRef.current) onErrorRef.current(e);
+      }
+    }
+
     run();
     return () => { active = false; if (ref.current?.srcObject) (ref.current.srcObject as MediaStream).getTracks().forEach(t => t.stop()); };
-  }, [onReady]);
-  return <video ref={ref} width={640} height={480} autoPlay muted playsInline style={{ width: '100%', maxWidth: 720, border: '1px solid #e7e7e7' }} />;
+  }, []);
+
+  return <video ref={ref} width={1920} height={1080} autoPlay muted playsInline style={full ? { width: '100vw', height: '100vh', objectFit: 'cover', display: 'block', background: 'black' } : { width: '100%', maxWidth: '100%', height: 'auto', border: '1px solid #e7e7e7' }} />;
 }

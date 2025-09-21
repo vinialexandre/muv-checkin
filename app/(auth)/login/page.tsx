@@ -1,14 +1,17 @@
 "use client";
 import { auth } from '@/lib/firebase';
-import { Button, Card, CardBody, FormControl, FormLabel, Heading, Input, Stack, Text, useToast } from '@chakra-ui/react';
+import { Button, Card, CardBody, FormControl, FormLabel, Heading, Input, Stack, useToast, Image } from '@chakra-ui/react';
+import { ptAuthMessage } from '@/lib/errors';
 import { signInWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail } from 'firebase/auth';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string|undefined>();
+  const [, setError] = useState<string|undefined>();
+  const [loading, setLoading] = useState(false);
+
   const router = useRouter();
   const toast = useToast();
 
@@ -20,29 +23,41 @@ export default function LoginPage() {
       const role = claims.role || (claims.admin ? 'admin' : undefined);
       if (role === 'admin' || role === 'developer') router.replace('/admin/students');
       else if (role === 'attendant') router.replace('/admin/students');
-      else setError('Seu usuário não possui acesso. Peça para um admin definir seu papel.');
+      else { setError('Seu usuário não possui acesso. Peça para um admin definir seu papel.'); toast({ status:'error', title:'Acesso negado', description:'Seu usuário não possui papel com acesso.' }); }
     });
     return () => unsub();
   }, [router]);
 
   const submit = async () => {
     setError(undefined);
+    setLoading(true);
     try {
       const cred = await signInWithEmailAndPassword(auth, email, password);
       const idt = await cred.user.getIdTokenResult(true);
       const claims = idt.claims as any;
       const role = claims.role || (claims.admin ? 'admin' : undefined);
+      toast({ status:'success', title:'Login realizado', description:'Bem-vindo!' });
       if (role === 'admin' || role === 'developer') router.replace('/admin/students');
       else if (role === 'attendant') router.replace('/admin/students');
-      else setError('Seu usuário não possui acesso. Peça para um admin definir seu papel.');
+      else { setError('Seu usuário não possui acesso. Peça para um admin definir seu papel.'); toast({ status:'error', title:'Acesso negado', description:'Seu usuário não possui papel com acesso.' }); }
     } catch (e: any) {
-      setError(e.message);
+      const msg = ptAuthMessage(e?.code);
+      setError(msg);
+      toast({ status:'error', title:'Erro no login', description: msg, isClosable: true });
+    } finally {
+      setLoading(false);
     }
   };
 
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    submit();
+  };
+
+
   const forgot = async () => {
     setError(undefined);
-    if (!email) { setError('Informe seu email para recuperar a senha.'); return; }
+    if (!email) { const msg='Informe seu email para recuperar a senha.'; setError(msg); toast({ status:'error', title:'Recuperação de senha', description: msg }); return; }
     try {
       // Configurar para usar nossa página customizada de redefinição
       const actionCodeSettings = {
@@ -59,36 +74,28 @@ export default function LoginPage() {
         isClosable: true,
       });
     } catch (e: any) {
-      let errorMessage = 'Erro ao enviar email de recuperação.';
-
-      if (e.code === 'auth/user-not-found') {
-        errorMessage = 'Usuário não encontrado com este email.';
-      } else if (e.code === 'auth/invalid-email') {
-        errorMessage = 'Email inválido.';
-      } else if (e.code === 'auth/too-many-requests') {
-        errorMessage = 'Muitas tentativas. Tente novamente mais tarde.';
-      }
-
+      const errorMessage = ptAuthMessage(e?.code) || 'Erro ao enviar email de recuperação.';
       setError(errorMessage);
+      toast({ status:'error', title:'Recuperação de senha', description: errorMessage, isClosable: true });
     }
   };
 
   return (
-    <Stack align="center" mt={24}>
+    <Stack align="center" minH="100vh" justify="center" py={8}>
+      <Image src="/logo-muv.png" alt="MUV" h="165px" mt="-230px" mb="-7px" />
       <Card w="sm" variant="outline">
-        <CardBody>
-          <Heading size="md" mb={4}>Acesso Admin</Heading>
+        <CardBody as="form" onSubmit={onSubmit}>
+          <Heading size="md" textAlign={"center"} mb={4}>Plataforma de Gestão</Heading>
           <FormControl mb={3}>
             <FormLabel>Email</FormLabel>
-            <Input value={email} onChange={(e)=>setEmail(e.target.value)} type="email" />
+            <Input value={email} onChange={(e)=>setEmail(e.target.value)} type="email" isDisabled={loading} />
           </FormControl>
           <FormControl mb={4}>
             <FormLabel>Senha</FormLabel>
-            <Input value={password} onChange={(e)=>setPassword(e.target.value)} type="password" />
+            <Input value={password} onChange={(e)=>setPassword(e.target.value)} type="password" isDisabled={loading} />
           </FormControl>
-          {error && <Text color="red.500" mb={2}>{error}</Text>}
-          <Button variant="link" size="sm" onClick={forgot} mb={2}>Esqueceu a senha?</Button>
-          <Button onClick={submit} w="full">Entrar</Button>
+          <Button variant="link" size="sm" onClick={forgot} mb={2} type="button" isDisabled={loading}>Esqueceu a senha?</Button>
+          <Button type="submit" w="full" isLoading={loading} isDisabled={loading}>Entrar</Button>
         </CardBody>
       </Card>
     </Stack>

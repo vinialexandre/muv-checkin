@@ -1,124 +1,230 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Icon } from '@/components/Icon';
-import { Box, Button, Heading, HStack, Select, Stat, StatLabel, StatNumber, Text, VStack } from '@chakra-ui/react';
+import { useEffect, useRef, useState } from 'react';
+import { Box, Text, useToast } from '@chakra-ui/react';
 import VideoCanvas from '@/components/VideoCanvas';
-import LivenessHint from '@/components/LivenessHint';
 import { useFaceModels } from '@/lib/face/useFaceModels';
 import { getEmbeddingFor, match1vN } from '@/lib/face/match1vN';
 import { createCheckIn } from '@/lib/firestore';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import PageCard from '@/components/PageCard';
 import { simpleLiveness } from '@/lib/face/liveness';
+import '@/lib/dev/muteWarnings';
+import '@/lib/polyfills/text-encoder';
+
+const log = (...args: any[]) => console.log(`[KIOSK ${new Date().toISOString()}]`, ...args);
 
 export default function KioskPage() {
   const { ready, error: faceError, loading: faceLoading } = useFaceModels();
   const [students, setStudents] = useState<any[]>([]);
-  const [last, setLast] = useState<{name:string; id:string; at: Date; success?: boolean} | null>(null);
-  const [livenessOk, setLivenessOk] = useState(false);
-  const [manualStudentId, setManualStudentId] = useState<string>('');
-  const lastProcessRef = useRef<number>(0);
+  const [authed, setAuthed] = useState(false);
+  const [cameraError, setCameraError] = useState<string|undefined>();
+  const [hud, setHud] = useState<{ text: string; tone: 'ok'|'dup'|'fail'|'error' }|undefined>();
   const cooldownRef = useRef<Map<string, number>>(new Map());
+  const checkedInHojeRef = useRef<Map<string, string>>(new Map());
+  const dayRef = useRef<string>(new Date().toISOString().slice(0,10));
   const videoRef = useRef<HTMLVideoElement|null>(null);
+  const overlayRef = useRef<HTMLCanvasElement|null>(null);
+  const workerCanvasRef = useRef<HTMLCanvasElement|null>(null);
+  const runningRef = useRef(false);
+  const intervalRef = useRef<number|undefined>(undefined);
+  const lastLivenessRef = useRef<number>(0);
+  const livenessOkCountRef = useRef<number>(0);
+  const prevLivenessOkRef = useRef<boolean>(false);
+  const lastEmbeddingTsRef = useRef<number>(0);
+  const toast = useToast();
   useEffect(() => {
-    getDocs(collection(db,'students')).then(s => setStudents(s.docs.map(d=>({ id:d.id, ...(d.data() as any) }))));
+    const { onAuthStateChanged } = require('firebase/auth');
+    const { auth } = require('@/lib/firebase');
+    const unsub = onAuthStateChanged(auth, async (user: any) => {
+      if (!user) { log('auth','signed-out'); setAuthed(false); return; }
+      try { await user.getIdToken(true); } catch {}
+      log('auth','signed-in', { uid: user.uid });
+      setAuthed(true);
+    });
+    return () => unsub();
+  }, []);
+  useEffect(() => {
+    if (!authed) return;
+    getDocs(collection(db,'students'))
+      .then(s => { const arr = s.docs.map(d=>({ id:d.id, ...(d.data() as any) })); setStudents(arr); log('students','loaded',{ count: arr.length }); })
+      .catch(e => { log('students','error', String(e?.message||e)); setStudents([]); toast({ status:'error', title:'Erro ao carregar alunos', description:'Permissão insuficiente ou falha de rede.' }); });
+  }, [authed]);
+
+  useEffect(() => {
+    if (faceLoading) log('face-models','loading');
+    if (faceError) log('face-models','error', faceError);
+    if (ready) log('face-models','ready');
+  }, [ready, faceError, faceLoading]);
+
+  function beepOk() {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'sine'; o.frequency.value = 880;
+      o.connect(g); g.connect(ctx.destination); g.gain.value = 0.06;
+      o.start(); setTimeout(()=>{ o.stop(); ctx.close(); }, 150);
+    } catch {}
+  }
+
+  useEffect(() => {
+    return () => { if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = undefined; } };
   }, []);
 
-  async function processFrame(video: HTMLVideoElement) {
+  async function processTick(video: HTMLVideoElement) {
     if (!ready) return;
 
-    // Update liveness state every tick (cheap vs detection)
+    // Liveness e overlay
     let isLive = false;
     try {
-      const lv = await simpleLiveness(video);
-      isLive = !!lv.ok;
-      setLivenessOk(isLive);
+      const nowLite = Date.now();
+      if (nowLite - lastLivenessRef.current > 140) {
+        lastLivenessRef.current = nowLite;
+        const lv = await simpleLiveness(video);
+        isLive = !!lv.ok;
+        const prev = prevLivenessOkRef.current;
+        if (prev !== isLive) {
+          log('liveness', isLive ? 'ok' : 'not-detected', lv?.box ? { box: lv.box } : undefined);
+          prevLivenessOkRef.current = isLive;
+        }
+        const canvas = overlayRef.current;
+        if (canvas) {
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            const cw = video.clientWidth || video.videoWidth;
+            const ch = video.clientHeight || video.videoHeight;
+            if (canvas.width !== cw) canvas.width = cw;
+            if (canvas.height !== ch) canvas.height = ch;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (lv.box) {
+              const sx = (video.clientWidth || canvas.width) / (video.videoWidth || canvas.width);
+              const sy = (video.clientHeight || canvas.height) / (video.videoHeight || canvas.height);
+              const x = lv.box.x * sx, y = lv.box.y * sy, w = lv.box.width * sx, h = lv.box.height * sy;
+              ctx.strokeStyle = isLive ? 'rgba(80,200,120,0.95)' : 'rgba(255,244,0,0.95)';
+              ctx.lineWidth = 3;
+              ctx.strokeRect(x, y, w, h);
+            }
+          }
+        }
+      }
     } catch {}
 
-    // Throttle heavy face descriptor extraction
+    let today = new Date().toISOString().slice(0,10);
+    if (dayRef.current !== today) { dayRef.current = today; checkedInHojeRef.current.clear(); }
+
+    // Estabilizar liveness por alguns ciclos
+    if (isLive) livenessOkCountRef.current = Math.min(livenessOkCountRef.current + 1, 10);
+    else livenessOkCountRef.current = 0;
+    if (livenessOkCountRef.current < 3) return;
+
+    // Throttle de embedding
     const nowTs = Date.now();
-    const throttleMs = 900;
-    if (nowTs - (lastProcessRef.current || 0) < throttleMs) return;
-    lastProcessRef.current = nowTs;
+    if (nowTs - (lastEmbeddingTsRef.current || 0) < 900) return;
+    lastEmbeddingTsRef.current = nowTs;
 
-    // Only try recognize if liveness OK
-    if (!isLive) return;
+    // Downscale para processamento
+    let worker = workerCanvasRef.current;
+    if (!worker) { worker = document.createElement('canvas'); workerCanvasRef.current = worker; }
+    const targetW = 320;
+    const scale = video.videoWidth ? targetW / video.videoWidth : 1;
+    const w = video.videoWidth ? targetW : (video.clientWidth || 320);
+    const h = video.videoHeight ? Math.max(1, Math.round(video.videoHeight * scale)) : (video.clientHeight || 240);
+    if (worker.width !== w) worker.width = w;
+    if (worker.height !== h) worker.height = h;
+    const wctx = worker.getContext('2d', { willReadFrequently: true }) as CanvasRenderingContext2D | null;
+    if (!wctx) return;
+    wctx.drawImage(video, 0, 0, w, h);
 
-    const emb = await getEmbeddingFor(video);
-    if (!emb) return;
+    const emb = await getEmbeddingFor(worker);
+    if (!emb) { log('embedding', 'none'); setHud({ text:'Não reconhecido', tone:'fail' }); return; }
 
-    // Build face index of active students with centroid/descriptors present
+    // Índice de faces
     const faceIndex = (students||[])
       .filter((s:any)=> (s.active ?? true) && (s.centroid || (s.descriptors && s.descriptors.length)))
       .map((s:any)=> ({ id: s.id, name: s.name, centroid: s.centroid, descriptors: (s.descriptors||[]).map((d:any)=> Array.isArray(d) ? d : d?.v).filter(Boolean) }));
-    if (!faceIndex.length) return;
+    if (!faceIndex.length) { log('face-index', 'empty'); setHud({ text:'Nenhum aluno com biometria cadastrada', tone:'error' }); return; }
 
     const match = match1vN(emb, faceIndex as any);
-    if (!('matched' in match) || !match.matched) return;
+    if (!('matched' in match) || !match.matched) {
+      setHud({ text:'Não reconhecido', tone:'fail' });
+      return;
+    }
+    log('match', 'success', { studentId: match.studentId, name: match.name, distance: (match as any).distance });
 
-    // Cooldown per-student to avoid spamming
-    const cooldownMs = 20_000;
-    const lastSeen = cooldownRef.current.get(match.studentId) || 0;
-    if (nowTs - lastSeen < cooldownMs) return;
-    cooldownRef.current.set(match.studentId, nowTs);
+    // Evita chamada redundante no mesmo dia (cache local)
+    if (checkedInHojeRef.current.get(match.studentId) === today) {
+      setHud({ text:`Já registrado hoje: ${match.name}`, tone:'dup' });
+      return;
+    }
 
-    const now = new Date();
-    const result = await createCheckIn({ studentId: match.studentId, when: now, source: 'face' });
-    setLast({ name: match.name, id: match.studentId, at: now, success: result.created });
+    // Check-in (idempotente no servidor)
+    try {
+      log('checkin','attempt',{ studentId: match.studentId, name: match.name });
+      const result = await createCheckIn({ studentId: match.studentId, when: new Date(), source: 'face' });
+      if (result.created) {
+        checkedInHojeRef.current.set(match.studentId, today);
+        setHud({ text:`Check-in OK: ${match.name}`, tone:'ok' });
+        beepOk();
+      } else {
+        checkedInHojeRef.current.set(match.studentId, today);
+        setHud({ text:`Já registrado hoje: ${match.name}`, tone:'dup' });
+      }
+      cooldownRef.current.set(match.studentId, Date.now());
+    } catch (e: any) {
+      setHud({ text:'Erro ao registrar check-in', tone:'error' });
+      log('checkin','error', { name: e?.name, message: e?.message });
+    }
   }
 
-  async function manualCheckIn() {
-    if (!manualStudentId) return;
-    const now = new Date();
-    const s = students.find(s=>s.id===manualStudentId);
-    const result = await createCheckIn({ studentId: manualStudentId, when: now, source: 'manual' });
-    setLast({ name: s?.name || manualStudentId, id: manualStudentId, at: now, success: result.created });
-    setManualStudentId(''); // Limpa a seleção após o check-in
-  }
 
   return (
-    <PageCard>
-      <VStack spacing={6} align="stretch">
-        <HStack>
-          <Icon name='monitor' />
-          <Heading size="lg">Kiosque</Heading>
-        </HStack>
-        <Text color="gray.700">Reconhecimento facial 1:N e check-in automático</Text>
-        {faceLoading && <Text color="blue.500">🔄 Carregando modelos de reconhecimento facial...</Text>}
-        {faceError && <Text color="red.500">❌ {faceError}</Text>}
-        <VideoCanvas onReady={(v)=>{
-          videoRef.current = v;
-          const tick = async () => { if (videoRef.current) await processFrame(videoRef.current); requestAnimationFrame(tick); };
-          tick();
-        }} />
-        <LivenessHint ok={livenessOk} />
-        {last && (
-          <HStack>
-            <Stat>
-              <StatLabel>Último check-in</StatLabel>
-              <StatNumber>{last.name}</StatNumber>
-              <Text fontSize="sm" color="gray.500">
-                {last.at.toLocaleTimeString('pt-BR')}
-              </Text>
-            </Stat>
-            {last.success === false && <Text color="orange.500">Check-in recente - não registrado novamente</Text>}
-            {last.success === true && <Text color="green.500">✓ Check-in registrado com sucesso</Text>}
-          </HStack>
-        )}
-        <Box>
-          <Heading size="sm" mb={2}>Check-in manual (admin)</Heading>
-          <HStack>
-            <Select placeholder="Aluno" value={manualStudentId} onChange={(e)=>setManualStudentId(e.target.value)}>
-              {students.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </Select>
-            <Button onClick={manualCheckIn} variant="secondary">Check-in</Button>
-          </HStack>
+    <Box position="fixed" inset={0} bg="black">
+      {faceError && (
+        <Box position="absolute" top={4} left={4} color="red.400" zIndex={2}>
+          <Text>{faceError}</Text>
         </Box>
-        <Text fontSize="sm" color="gray.500">
-          Sistema simplificado - não requer aulas cadastradas. Check-ins são registrados automaticamente.
-        </Text>
-      </VStack>
-    </PageCard>
+      )}
+      {faceLoading && (
+        <Box position="absolute" top={4} left={4} color="whiteAlpha.800" zIndex={2}>
+          <Text>Carregando modelos...</Text>
+        </Box>
+      )}
+      {cameraError && (
+        <Box position="absolute" bottom={4} left={4} right={4} color="red.300" zIndex={2}>
+          <Text>{cameraError}</Text>
+        </Box>
+      )}
+      {hud && (
+        <Box position="absolute" top={4} right={4} zIndex={2}>
+          <Text color={hud.tone==='ok' ? 'green.300' : hud.tone==='dup' ? 'yellow.300' : hud.tone==='error' ? 'red.300' : 'whiteAlpha.800'}>
+            {hud.text}
+          </Text>
+        </Box>
+      )}
+
+      <Box position="absolute" inset={0}>
+        <VideoCanvas full onReady={(v)=>{
+          setCameraError(undefined);
+          log('camera','ready');
+          videoRef.current = v;
+          if (!workerCanvasRef.current) workerCanvasRef.current = document.createElement('canvas');
+          if (intervalRef.current) clearInterval(intervalRef.current);
+          log('loop','start');
+          intervalRef.current = window.setInterval(async () => {
+            if (runningRef.current) return;
+            const vid = videoRef.current;
+            if (!vid) return;
+            runningRef.current = true;
+            try { await processTick(vid); } finally { runningRef.current = false; }
+          }, 150);
+        }} onError={(e)=>{
+          const msg = e?.name === 'NotReadableError' ? 'Não foi possível acessar a câmera (em uso por outro app). Feche outros aplicativos de câmera e tente novamente.' : 'Falha ao iniciar a câmera. Verifique permissões do navegador.';
+          setCameraError(msg);
+          log('camera','error', { name: e?.name, message: e?.message });
+          toast({ status:'error', title:'Erro de câmera', description: msg, duration: 4000, isClosable: true });
+        }} />
+        <canvas ref={overlayRef} style={{ position: 'absolute', inset: 0 }} />
+      </Box>
+    </Box>
   );
 }

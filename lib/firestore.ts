@@ -44,15 +44,17 @@ export async function createCheckIn(args: { studentId: string; when: Date; sourc
   const ref = doc(db, 'checkins', id);
 
   // Verifica se já existe um check-in muito recente (últimos 30 segundos) para evitar duplicatas
-  const recentThreshold = new Date(args.when.getTime() - 30000); // 30 segundos atrás
-  const recentQuery = query(
+  const startOfDay = new Date(args.when.getFullYear(), args.when.getMonth(), args.when.getDate(), 0, 0, 0, 0);
+  const endOfDay = new Date(args.when.getFullYear(), args.when.getMonth(), args.when.getDate(), 23, 59, 59, 999);
+  const dayQuery = query(
     collection(db, 'checkins'),
     where('studentId', '==', args.studentId),
-    where('createdAt', '>=', Timestamp.fromDate(recentThreshold))
+    where('createdAt', '>=', Timestamp.fromDate(startOfDay)),
+    where('createdAt', '<=', Timestamp.fromDate(endOfDay))
   );
-  const recentSnaps = await getDocs(recentQuery);
-  if (!recentSnaps.empty) {
-    return { id: recentSnaps.docs[0].id, created: false, reason: 'recent_checkin' };
+  const daySnaps = await getDocs(dayQuery);
+  if (!daySnaps.empty) {
+    return { id: daySnaps.docs[0].id, created: false, reason: 'already_checked_today' };
   }
 
   await setDoc(ref, {
