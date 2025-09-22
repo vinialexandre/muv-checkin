@@ -482,7 +482,8 @@ export default function EditStudentPage() {
                       Modelos {faceReady ? 'OK' : faceErr ? 'Erro' : 'Carregando'}
                     </Badge>
                     <Badge colorScheme={video ? 'green' : 'gray'}>Câmera {video ? 'OK' : 'Off'}</Badge>
-                    <Badge colorScheme={(existingPhotos.length>0 || existingSamples>0)?'green':'gray'}>{(existingPhotos.length>0 || existingSamples>0) ? `${(existingPhotos.length>0? existingPhotos.length : existingSamples)} amostras salvas` : 'Sem biometria'}</Badge>
+                    <Badge colorScheme={existingSamples>0?'green':'red'}>{existingSamples>0 ? `${existingSamples} amostras` : 'Sem amostras'}</Badge>
+                    <Badge colorScheme={existingPhotos.length>0?'green':'gray'}>{existingPhotos.length>0 ? `${existingPhotos.length} fotos` : 'Sem fotos'}</Badge>
                   </HStack>
                 </HStack>
                 <Text color="gray.600">Colete ao menos 3 amostras com boa iluminação, centralizando o rosto.</Text>
