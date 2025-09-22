@@ -11,7 +11,9 @@ export async function GET(req: NextRequest) {
     const u = await adminAuth.getUser(uid);
     const claims = (u.customClaims as any) || {};
     const role = typeof claims.role === 'string' && claims.role.length > 0 ? claims.role : (claims.admin ? 'admin' : undefined);
-    return NextResponse.json({ user: { uid: u.uid, email: u.email, displayName: u.displayName, role } });
+    const active = typeof claims.active === 'boolean' ? claims.active : true;
+    const username = typeof claims.username === 'string' ? claims.username : undefined;
+    return NextResponse.json({ user: { uid: u.uid, email: u.email, displayName: u.displayName, role, active, username } });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }

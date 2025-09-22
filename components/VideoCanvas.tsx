@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef } from 'react';
 
-export default function VideoCanvas({ onReady, onError, full }: { onReady?: (video: HTMLVideoElement) => void; onError?: (err: any) => void; full?: boolean }) {
+export default function VideoCanvas({ onReady, onError, full, size = 500 }: { onReady?: (video: HTMLVideoElement) => void; onError?: (err: any) => void; full?: boolean; size?: number }) {
   const ref = useRef<HTMLVideoElement>(null);
   const onReadyRef = useRef<typeof onReady>(onReady);
   const onErrorRef = useRef<typeof onError>(onError);
@@ -55,5 +55,5 @@ export default function VideoCanvas({ onReady, onError, full }: { onReady?: (vid
     return () => { active = false; if (ref.current?.srcObject) (ref.current.srcObject as MediaStream).getTracks().forEach(t => t.stop()); };
   }, []);
 
-  return <video ref={ref} width={1920} height={1080} autoPlay muted playsInline style={full ? { width: '100vw', height: '100vh', objectFit: 'cover', display: 'block', background: 'black' } : { width: '100%', maxWidth: '100%', height: 'auto', border: '1px solid #e7e7e7' }} />;
+  return <video ref={ref} width={full ? 1920 : size} height={full ? 1080 : size} autoPlay muted playsInline style={full ? { width: '100vw', height: '100vh', objectFit: 'cover', display: 'block', background: 'black' } : { width: `${size}px`, height: `${size}px`, objectFit: 'cover', display: 'block', background: 'black', border: '1px solid #e7e7e7' }} />;
 }

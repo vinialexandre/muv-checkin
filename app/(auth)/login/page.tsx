@@ -32,7 +32,14 @@ export default function LoginPage() {
     setError(undefined);
     setLoading(true);
     try {
-      const cred = await signInWithEmailAndPassword(auth, email, password);
+      let emailToUse = email;
+      if (!email.includes('@')) {
+        const r = await fetch(`/api/auth/resolve-username?username=${encodeURIComponent(email)}`);
+        if (!r.ok) { throw new Error('Usuário não encontrado'); }
+        const j = await r.json();
+        emailToUse = j.email || '';
+      }
+      const cred = await signInWithEmailAndPassword(auth, emailToUse, password);
       const idt = await cred.user.getIdTokenResult(true);
       const claims = idt.claims as any;
       const role = claims.role || (claims.admin ? 'admin' : undefined);
@@ -41,7 +48,7 @@ export default function LoginPage() {
       else if (role === 'attendant') router.replace('/admin/students');
       else { setError('Seu usuário não possui acesso. Peça para um admin definir seu papel.'); toast({ status:'error', title:'Acesso negado', description:'Seu usuário não possui papel com acesso.' }); }
     } catch (e: any) {
-      const msg = ptAuthMessage(e?.code);
+      const msg = e?.message ? String(e.message) : ptAuthMessage(e?.code);
       setError(msg);
       toast({ status:'error', title:'Erro no login', description: msg, isClosable: true });
     } finally {
@@ -57,24 +64,20 @@ export default function LoginPage() {
 
   const forgot = async () => {
     setError(undefined);
-    if (!email) { const msg='Informe seu email para recuperar a senha.'; setError(msg); toast({ status:'error', title:'Recuperação de senha', description: msg }); return; }
+    if (!email) { const msg='Informe seu email ou usuário para recuperar a senha.'; setError(msg); toast({ status:'error', title:'Recuperação de senha', description: msg }); return; }
     try {
-      // Configurar para usar nossa página customizada de redefinição
-      const actionCodeSettings = {
-        url: `${window.location.origin}/reset-password`,
-        handleCodeInApp: true,
-      };
-
-      await sendPasswordResetEmail(auth, email, actionCodeSettings);
-      toast({
-        title: 'Email de recuperação enviado',
-        description: 'Verifique sua caixa de entrada e spam.',
-        status: 'success',
-        duration: 5000,
-        isClosable: true,
-      });
+      const actionCodeSettings = { url: `${window.location.origin}/reset-password`, handleCodeInApp: true } as const;
+      let emailToUse = email;
+      if (!email.includes('@')) {
+        const r = await fetch(`/api/auth/resolve-username?username=${encodeURIComponent(email)}`);
+        if (!r.ok) throw new Error('Usuário não encontrado');
+        const j = await r.json();
+        emailToUse = j.email || '';
+      }
+      await sendPasswordResetEmail(auth, emailToUse, actionCodeSettings);
+      toast({ title: 'Email de recuperação enviado', description: 'Verifique sua caixa de entrada e spam.', status: 'success', duration: 5000, isClosable: true });
     } catch (e: any) {
-      const errorMessage = ptAuthMessage(e?.code) || 'Erro ao enviar email de recuperação.';
+      const errorMessage = e?.message ? String(e.message) : (ptAuthMessage(e?.code) || 'Erro ao enviar email de recuperação.');
       setError(errorMessage);
       toast({ status:'error', title:'Recuperação de senha', description: errorMessage, isClosable: true });
     }
@@ -87,8 +90,8 @@ export default function LoginPage() {
         <CardBody as="form" onSubmit={onSubmit}>
           <Heading size="md" textAlign={"center"} mb={4}>Plataforma de Gestão</Heading>
           <FormControl mb={3}>
-            <FormLabel>Email</FormLabel>
-            <Input value={email} onChange={(e)=>setEmail(e.target.value)} type="email" isDisabled={loading} />
+            <FormLabel>Email ou usuário</FormLabel>
+            <Input value={email} onChange={(e)=>setEmail(e.target.value)} type="text" isDisabled={loading} />
           </FormControl>
           <FormControl mb={4}>
             <FormLabel>Senha</FormLabel>

@@ -13,12 +13,16 @@ export async function GET(_req: NextRequest) {
       const role = typeof claims.role === 'string' && claims.role.length > 0
         ? claims.role
         : (claims.admin ? 'admin' : undefined);
+      const active = typeof claims.active === 'boolean' ? claims.active : true;
+      const username = typeof claims.username === 'string' ? claims.username : undefined;
       return {
         uid: u.uid,
         email: u.email || undefined,
         displayName: u.displayName || undefined,
         role,
-      };
+        active,
+        username,
+      } as any;
     });
     return NextResponse.json({ users, nextPageToken: res.pageToken || null });
   } catch (e: any) {

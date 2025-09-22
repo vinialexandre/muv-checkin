@@ -19,6 +19,7 @@ export default function StudentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string|undefined>();
   const [deleteId, setDeleteId] = useState<string|undefined>();
+  const [navigating, setNavigating] = useState(false);
   const cancelRef = useRef<HTMLButtonElement>(null);
 
   // filtros
@@ -26,6 +27,10 @@ export default function StudentsPage() {
   const [filterName, setFilterName] = useState('');
   const [filterPlanId, setFilterPlanId] = useState<string>('');
   const [filterStatus, setFilterStatus] = useState<typeof filterAll | 'active' | 'inactive'>(filterAll);
+  // rascunho (digita primeiro, aplica ao clicar em Buscar)
+  const [draftName, setDraftName] = useState('');
+  const [draftPlanId, setDraftPlanId] = useState<string>('');
+  const [draftStatus, setDraftStatus] = useState<typeof filterAll | 'active' | 'inactive'>(filterAll);
 
   useEffect(() => {
     const q = query(collection(db, 'students'), orderBy('name'));
@@ -62,11 +67,16 @@ export default function StudentsPage() {
     toast({ title: 'Aluno excluído', status: 'info' });
   }
 
-  function openCreate() { router.push('/admin/students/new'); }
-  function openEdit(id: string) { router.push(`/admin/students/${id}/edit`); }
+  function openCreate() { setNavigating(true); router.push('/admin/students/new'); }
+  function openEdit(id: string) { setNavigating(true); router.push(`/admin/students/${id}/edit`); }
 
   return (
     <VStack align="stretch" spacing={8}>
+      {navigating && (
+        <Center position="fixed" inset={0} zIndex={1000} bg="rgba(0,0,0,0.28)">
+          <HStack bg="white" px={4} py={2} borderRadius="md" boxShadow="lg"><Spinner size="sm" /><Text fontWeight={600}>Carregando...</Text></HStack>
+        </Center>
+      )}
       <PageCard>
         <HStack justify="space-between" mb={4}>
           <HStack>
@@ -77,17 +87,17 @@ export default function StudentsPage() {
         </HStack>
         <HStack justify="space-between" mb={2}><Text fontWeight={600}>Filtros</Text></HStack>
         <HStack wrap="wrap" spacing={4}>
-          <Input placeholder="Nome" value={filterName} onChange={(e)=>setFilterName(e.target.value)} maxW="240px" />
-          <Select placeholder="Plano" value={filterPlanId} onChange={(e)=>setFilterPlanId(e.target.value)} maxW="240px">
+          <Input placeholder="Nome" value={draftName} onChange={(e)=>setDraftName(e.target.value)} maxW="240px" />
+          <Select placeholder="Todos os planos" value={draftPlanId} onChange={(e)=>setDraftPlanId(e.target.value)} maxW="240px">
             {plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </Select>
-          <Select placeholder="Status" value={filterStatus} onChange={(e)=>setFilterStatus((e.target.value||filterAll) as any)} maxW="180px">
+          <Select placeholder="Status" value={draftStatus} onChange={(e)=>setDraftStatus((e.target.value||filterAll) as any)} maxW="180px">
             <option value="active">Ativo</option>
             <option value="inactive">Inativo</option>
             <option value="all">Todos</option>
           </Select>
-          <Button leftIcon={<Icon name='search' size={16} />} onClick={()=>{ /* no-op: filtros já aplicam em tempo real */ }}>Buscar</Button>
-          <Button variant="outline" onClick={()=>{ setFilterName(''); setFilterPlanId(''); setFilterStatus(filterAll); }}>Limpar</Button>
+          <Button leftIcon={<Icon name='search' size={16} />} onClick={()=>{ setFilterName(draftName.trim()); setFilterPlanId(draftPlanId); setFilterStatus(draftStatus); }}>Buscar</Button>
+          <Button variant="outline" onClick={()=>{ setDraftName(''); setDraftPlanId(''); setDraftStatus(filterAll); setFilterName(''); setFilterPlanId(''); setFilterStatus(filterAll); }}>Limpar</Button>
         </HStack>
 
         {loading ? (
@@ -104,7 +114,7 @@ export default function StudentsPage() {
                 <Tr key={s.id}>
                   <Td>{s.name}</Td>
                   <Td>{plans.find(p => p.id === s.activePlanId)?.name || '-'}</Td>
-                  <Td>{s.active ? <Badge>Ativo</Badge> : <Badge colorScheme='red'>Inativo</Badge>}</Td>
+                  <Td>{s.active ? <Badge colorScheme='green'>Ativo</Badge> : <Badge colorScheme='red'>Inativo</Badge>}</Td>
                   <Td textAlign="right">
                     <HStack justify="flex-end" spacing={2}>
                       <Button size="sm" leftIcon={<Icon name='edit' size={16} />} onClick={()=>openEdit(s.id)}>Editar</Button>

@@ -1,5 +1,5 @@
 import { db } from '@/lib/firebase';
-import { Timestamp, collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore';
+import { Timestamp, collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, where, runTransaction } from 'firebase/firestore';
 
 export type Student = {
   id: string;
@@ -36,34 +36,47 @@ export type Attendance = {
 };
 
 // Nova função simplificada para check-in sem dependência de aulas
+// Mantém ID dinâmico no documento de check-in e usa um "lock" diário determinístico para evitar duplicatas sem precisar de índice composto.
 export async function createCheckIn(args: { studentId: string; when: Date; source: 'face'|'manual' }) {
   const d = args.when;
   const yyyymmdd = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
   const hhmmss = `${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}${String(d.getSeconds()).padStart(2,'0')}`;
-  const id = `${args.studentId}_${yyyymmdd}_${hhmmss}`;
-  const ref = doc(db, 'checkins', id);
+  const id = `${args.studentId}_${yyyymmdd}_${hhmmss}`; // ID dinâmico para o registro em si
+  const checkinRef = doc(db, 'checkins', id);
 
-  // Verifica se já existe um check-in muito recente (últimos 30 segundos) para evitar duplicatas
-  const startOfDay = new Date(args.when.getFullYear(), args.when.getMonth(), args.when.getDate(), 0, 0, 0, 0);
-  const endOfDay = new Date(args.when.getFullYear(), args.when.getMonth(), args.when.getDate(), 23, 59, 59, 999);
-  const dayQuery = query(
-    collection(db, 'checkins'),
-    where('studentId', '==', args.studentId),
-    where('createdAt', '>=', Timestamp.fromDate(startOfDay)),
-    where('createdAt', '<=', Timestamp.fromDate(endOfDay))
-  );
-  const daySnaps = await getDocs(dayQuery);
-  if (!daySnaps.empty) {
-    return { id: daySnaps.docs[0].id, created: false, reason: 'already_checked_today' };
-  }
+  // Doc "lock" diário determinístico: um por aluno por dia
+  const lockId = `${args.studentId}_${yyyymmdd}`;
+  const lockRef = doc(db, 'checkins_daily', lockId);
 
-  await setDoc(ref, {
-    id,
-    studentId: args.studentId,
-    source: args.source,
-    createdAt: Timestamp.fromDate(args.when)
-  } satisfies CheckIn);
-  return { id, created: true };
+  let created = false;
+  let resultId = id;
+
+  await runTransaction(db, async (tx) => {
+    const lockSnap = await tx.get(lockRef);
+    if (lockSnap.exists()) {
+      const data = lockSnap.data() as any;
+      resultId = data?.firstCheckInId || resultId;
+      return; // já tem check-in hoje
+    }
+    // Cria o lock e o check-in de forma atômica
+    tx.set(lockRef, {
+      id: lockId,
+      studentId: args.studentId,
+      yyyymmdd,
+      firstCheckInId: id,
+      createdAt: Timestamp.fromDate(args.when),
+    });
+    tx.set(checkinRef, {
+      id,
+      studentId: args.studentId,
+      source: args.source,
+      createdAt: Timestamp.fromDate(args.when),
+    } satisfies CheckIn);
+    created = true;
+  });
+
+  if (created) return { id: resultId, created: true };
+  return { id: resultId, created: false, reason: 'already_checked_today' };
 }
 
 // Função antiga mantida para compatibilidade

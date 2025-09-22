@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from 'react';
-import { Box, Text, useToast } from '@chakra-ui/react';
+import { Box, Text, useToast, Alert } from '@chakra-ui/react';
 import VideoCanvas from '@/components/VideoCanvas';
 import { useFaceModels } from '@/lib/face/useFaceModels';
 import { getEmbeddingFor, match1vN } from '@/lib/face/match1vN';
@@ -195,10 +195,17 @@ export default function KioskPage() {
         </Box>
       )}
       {hud && (
-        <Box position="absolute" top={4} right={4} zIndex={2}>
-          <Text color={hud.tone==='ok' ? 'green.300' : hud.tone==='dup' ? 'yellow.300' : hud.tone==='error' ? 'red.300' : 'whiteAlpha.800'}>
-            {hud.text}
-          </Text>
+        <Box position="absolute" top={4} right={4} zIndex={2} maxW="80vw">
+          <Alert
+            status={(hud.tone==='ok' || hud.tone==='dup') ? 'success' : 'error'}
+            variant="solid"
+            borderRadius="md"
+            boxShadow="lg"
+            py={2}
+            px={3}
+          >
+            <Text color="white" fontWeight={700}>{hud.text}</Text>
+          </Alert>
         </Box>
       )}
 

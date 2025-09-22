@@ -1,5 +1,5 @@
 "use client";
-import { Box, Flex, Link as CLink, Button, Text, Image } from '@chakra-ui/react';
+import { Box, Flex, Link as CLink, Button, Text, Image, Progress, Spinner, HStack } from '@chakra-ui/react';
 import Link from 'next/link';
 import { signOut, onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -20,6 +20,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<string | undefined>();
   const [userEmail, setUserEmail] = useState<string | undefined>();
   const [collapsed, setCollapsed] = useState<boolean>(false);
+  const [navLoading, setNavLoading] = useState(false);
+  useEffect(()=>{ setNavLoading(false); }, [pathname]);
+
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) { setRole(undefined); setUserEmail(undefined); return; }
@@ -42,7 +45,22 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <Image src='/logo-muv.png' alt='MUV' height='60px' width='auto' />
         <Flex align='center' gap={4}>
           {userEmail && <Text fontSize='sm' color='gray.600'>{userEmail}</Text>}
-          <Button variant='outline' size='sm' leftIcon={<Icon name='logOut' size={16} />} onClick={() => signOut(auth)}>Sair</Button>
+      <Box position="fixed" top={0} left={0} right={0} zIndex={1000} pointerEvents="none" visibility={navLoading ? 'visible' : 'hidden'}>
+        <Progress size="xs" isIndeterminate colorScheme="yellow" borderRadius={0} />
+      </Box>
+      {navLoading && (
+        <Flex position="fixed" inset={0} zIndex={999} align="center" justify="center" pointerEvents="none">
+          <Box position="absolute" inset={0} bg="rgba(0,0,0,0.28)" />
+          <Box position="relative" zIndex={1} bg="white" px={4} py={2} borderRadius="md" boxShadow="lg">
+            <HStack spacing={3}>
+              <Spinner size="sm" />
+              <Text fontWeight={600}>Carregando...</Text>
+            </HStack>
+          </Box>
+        </Flex>
+      )}
+
+          <Button variant='outline' size='sm' leftIcon={<Icon name='logOut' size={16} />} onClick={() => { setNavLoading(true); signOut(auth); }}>Sair</Button>
         </Flex>
       </Flex>
       <Flex flex='1' overflow='hidden'>
@@ -62,6 +80,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     as={Link}
                     key={item.href}
                     href={item.href}
+                    onClick={!active && item.href !== '/kiosk' ? (()=> setNavLoading(true)) : undefined}
                     px={4}
                     py={3}
                     display='flex'

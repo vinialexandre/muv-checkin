@@ -1,12 +1,12 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertDialog, AlertDialogBody, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogOverlay, Box, Button, Center, HStack, Input, Select, Spinner, Table, Tbody, Td, Th, Thead, Tr, VStack, useToast, Text } from '@chakra-ui/react';
+import { AlertDialog, AlertDialogBody, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogOverlay, Badge, Box, Button, Center, HStack, Input, Select, Spinner, Table, Tbody, Td, Th, Thead, Tr, VStack, useToast, Text } from '@chakra-ui/react';
 import PageCard from '@/components/PageCard';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/Icon';
 
 
-type User = { uid: string; email?: string; displayName?: string; role?: string };
+type User = { uid: string; email?: string; displayName?: string; role?: string; active?: boolean };
 
 function emailMask(v: string) { return v.replace(/\s+/g,'').toLowerCase(); }
 
@@ -18,10 +18,13 @@ export default function UsersPage() {
   const [filterName, setFilterName] = useState('');
   const [filterEmail, setFilterEmail] = useState('');
   const [filterRole, setFilterRole] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string|undefined>();
   const [deleteUid, setDeleteUid] = useState<string|undefined>();
+  const [navigating, setNavigating] = useState(false);
   const cancelRef = useRef<HTMLButtonElement>(null);
 
   const pageSize = 30;
@@ -52,9 +55,10 @@ export default function UsersPage() {
     return users.filter(u =>
       (!filterName || (u.displayName||'').toLowerCase().includes(filterName.toLowerCase())) &&
       (!filterEmail || (u.email||'').toLowerCase().includes(filterEmail.toLowerCase())) &&
-      (!filterRole || (u.role||'')===filterRole)
+      (!filterRole || (u.role||'')===filterRole) &&
+      (!filterStatus || (filterStatus==='active' ? (u.active!==false) : (u.active===false)))
     );
-  }, [users, filterName, filterEmail, filterRole]);
+  }, [users, filterName, filterEmail, filterRole, filterStatus]);
 
   function labelForRole(r?: string) {
     switch (r) {
@@ -65,7 +69,7 @@ export default function UsersPage() {
     }
   }
 
-  function openCreate() { router.push('/admin/users/new'); }
+  function openCreate() { setNavigating(true); router.push('/admin/users/new'); }
   function openEdit(u: User) { router.push(`/admin/users/${u.uid}/edit`); }
 
   async function confirmDelete() {
@@ -95,6 +99,11 @@ export default function UsersPage() {
 
   return (
     <VStack align="stretch" spacing={8}>
+      {navigating && (
+        <Center position="fixed" inset={0} zIndex={1000} bg="rgba(0,0,0,0.28)">
+          <HStack bg="white" px={4} py={2} borderRadius="md" boxShadow="lg"><Spinner size="sm" /><Text fontWeight={600}>Carregando...</Text></HStack>
+        </Center>
+      )}
       <PageCard>
         <HStack justify="space-between" mb={4}>
           <HStack>
@@ -112,8 +121,12 @@ export default function UsersPage() {
             <option value="attendant">Atendente</option>
             <option value="developer">Desenvolvedor</option>
           </Select>
+          <Select placeholder="Status" value={filterStatus} onChange={(e)=>setFilterStatus(e.target.value)} maxW="160px">
+            <option value="active">Ativo</option>
+            <option value="inactive">Inativo</option>
+          </Select>
           <Button leftIcon={<Icon name='search' size={16} />} onClick={()=>{ setUsers([]); setNextToken(null); loadPage(null); }}>Buscar</Button>
-          <Button variant='outline' onClick={()=>{ setFilterName(''); setFilterEmail(''); setFilterRole(''); }}>Limpar</Button>
+          <Button variant='outline' onClick={()=>{ setFilterName(''); setFilterEmail(''); setFilterRole(''); setFilterStatus(''); }}>Limpar</Button>
         </HStack>
 
         {error && <Box color="red.500" mt={3}>{error}</Box>}
@@ -121,13 +134,14 @@ export default function UsersPage() {
         {loading && (<Center py={12}><Spinner /></Center>)}
         {!loading && (
         <Table size="md" variant="simple" mt={5}>
-          <Thead><Tr><Th>Nome</Th><Th>Email</Th><Th>Papel</Th><Th textAlign="right">Ações</Th></Tr></Thead>
+          <Thead><Tr><Th>Nome</Th><Th>Email</Th><Th>Papel</Th><Th>Status</Th><Th textAlign="right">Ações</Th></Tr></Thead>
           <Tbody>
             {filtered.map(u => (
               <Tr key={u.uid}>
                 <Td>{u.displayName||'-'}</Td>
                 <Td>{u.email||'-'}</Td>
                 <Td>{labelForRole(u.role)}</Td>
+                <Td><Badge colorScheme={(u.active===false)?'red':'green'}>{(u.active===false)?'Inativo':'Ativo'}</Badge></Td>
                 <Td textAlign="right">
                   <HStack justify="flex-end" spacing={2}>
                     <Button size="sm" leftIcon={<Icon name='edit' size={16} />} onClick={()=>openEdit(u)}>Editar</Button>
