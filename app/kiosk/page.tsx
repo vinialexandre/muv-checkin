@@ -31,6 +31,7 @@ export default function KioskPage() {
   const livenessOkCountRef = useRef<number>(0);
   const prevLivenessOkRef = useRef<boolean>(false);
   const lastEmbeddingTsRef = useRef<number>(0);
+  const pausedUntilRef = useRef<number>(0);
   const toast = useToast();
   useEffect(() => {
     const { onAuthStateChanged } = require('firebase/auth');
@@ -73,6 +74,7 @@ export default function KioskPage() {
 
   async function processTick(video: HTMLVideoElement) {
     if (!ready) return;
+    if (Date.now() < (pausedUntilRef.current || 0)) return;
 
     // Liveness e overlay
     let isLive = false;
@@ -165,6 +167,8 @@ export default function KioskPage() {
         checkedInHojeRef.current.set(match.studentId, today);
         setHud({ text:`Check-in OK: ${match.name}`, tone:'ok' });
         beepOk();
+        pausedUntilRef.current = Date.now() + 5000;
+        window.setTimeout(()=>{ setHud(undefined); }, 5000);
       } else {
         checkedInHojeRef.current.set(match.studentId, today);
         setHud({ text:`Já registrado hoje: ${match.name}`, tone:'dup' });
