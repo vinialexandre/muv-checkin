@@ -58,6 +58,8 @@ export default function EditUserPage() {
 
   const save = handleSubmit(async (data)=>{
     const payload: any = { uid, displayName: data.displayName, role: (data as any).role, active: !!(data as any).active, username: String((data as any).username||'').toLowerCase() };
+    const emailNorm = String(email||'').trim().toLowerCase();
+    if (emailNorm) payload.email = emailNorm;
     if ((data as any).newPassword) payload.password = (data as any).newPassword;
     const res = await fetch('/api/users/update', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     if (!res.ok) { const b = await res.json().catch(()=>({})); throw new Error(b?.error || `Erro ${res.status}`); }
@@ -97,8 +99,8 @@ export default function EditUserPage() {
           )}/>
 
           <FormControl>
-            <FormLabel>Email</FormLabel>
-            <Input borderRadius="md" placeholder="Email" type="email" value={email} isDisabled />
+            <FormLabel>Email (opcional)</FormLabel>
+            <Input borderRadius="md" placeholder="Email (opcional)" type="email" value={email} onChange={(e)=>setEmail(e.target.value)} />
           </FormControl>
           <Controller name="newPassword" control={control} render={({ field }) => (
             <FormControl isInvalid={!!(errors as any).newPassword}>

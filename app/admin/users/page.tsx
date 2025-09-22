@@ -9,6 +9,7 @@ import { Icon } from '@/components/Icon';
 type User = { uid: string; email?: string; displayName?: string; role?: string; active?: boolean };
 
 function emailMask(v: string) { return v.replace(/\s+/g,'').toLowerCase(); }
+function isFakeEmail(v?: string) { return !!v && /@example\.invalid$/i.test(v); }
 
 export default function UsersPage() {
   const router = useRouter();
@@ -52,12 +53,15 @@ export default function UsersPage() {
   useEffect(()=>{ loadPage(null); }, []);
 
   const filtered = useMemo(()=>{
-    return users.filter(u =>
-      (!filterName || (u.displayName||'').toLowerCase().includes(filterName.toLowerCase())) &&
-      (!filterEmail || (u.email||'').toLowerCase().includes(filterEmail.toLowerCase())) &&
-      (!filterRole || (u.role||'')===filterRole) &&
-      (!filterStatus || (filterStatus==='active' ? (u.active!==false) : (u.active===false)))
-    );
+    return users.filter(u => {
+      const emailForFilter = isFakeEmail(u.email) ? '' : (u.email||'');
+      return (
+        (!filterName || (u.displayName||'').toLowerCase().includes(filterName.toLowerCase())) &&
+        (!filterEmail || emailForFilter.toLowerCase().includes(filterEmail.toLowerCase())) &&
+        (!filterRole || (u.role||'')===filterRole) &&
+        (!filterStatus || (filterStatus==='active' ? (u.active!==false) : (u.active===false)))
+      );
+    });
   }, [users, filterName, filterEmail, filterRole, filterStatus]);
 
   function labelForRole(r?: string) {
@@ -139,7 +143,7 @@ export default function UsersPage() {
             {filtered.map(u => (
               <Tr key={u.uid}>
                 <Td>{u.displayName||'-'}</Td>
-                <Td>{u.email||'-'}</Td>
+                <Td>{(!u.email || isFakeEmail(u.email)) ? 'não informado' : u.email}</Td>
                 <Td>{labelForRole(u.role)}</Td>
                 <Td><Badge colorScheme={(u.active===false)?'red':'green'}>{(u.active===false)?'Inativo':'Ativo'}</Badge></Td>
                 <Td textAlign="right">
