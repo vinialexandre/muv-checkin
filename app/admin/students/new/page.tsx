@@ -3,7 +3,7 @@ import PageCard from '@/components/PageCard';
 import { Icon } from '@/components/Icon';
 
 import { db, storage } from '@/lib/firebase';
-import { Button, Checkbox, FormControl, FormErrorMessage, FormLabel, HStack, Input, Select, Text, VStack, useToast, Badge, Image, SimpleGrid, Tabs, TabList, TabPanels, Tab, TabPanel, Textarea, Box, Spinner, AlertDialog, AlertDialogBody, AlertDialogFooter, AlertDialogHeader, AlertDialogContent, AlertDialogOverlay } from '@chakra-ui/react';
+import { Button, Checkbox, FormControl, FormErrorMessage, FormLabel, HStack, Input, Select, Text, VStack, useToast, Badge, Image, SimpleGrid, Tabs, TabList, TabPanels, Tab, TabPanel, Textarea, Box, Spinner, AlertDialog, AlertDialogBody, AlertDialogFooter, AlertDialogHeader, AlertDialogContent, AlertDialogOverlay, useBreakpointValue } from '@chakra-ui/react';
 import { addDoc, collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useRouter } from 'next/navigation';
@@ -189,6 +189,8 @@ export default function NewStudentPage() {
     }
   }
 
+  const videoSize = useBreakpointValue({ base: 300, md: 500 });
+
   return (
     <VStack align="stretch" spacing={6}>
       <Tabs variant="enclosed" isLazy lazyBehavior="unmount" index={tabIndex} onChange={(i)=>{ if (tabIndex===2 && i!==2) { try { if (video?.srcObject) (video.srcObject as MediaStream).getTracks().forEach(t=>t.stop()); } catch {} setVideo(null); setCapturing(false); } setTabIndex(i); }}>
@@ -357,7 +359,7 @@ export default function NewStudentPage() {
                 <Text color="gray.600">Colete ao menos 3 amostras com boa iluminação, centralizando o rosto.</Text>
                 {!!faceErr && <Text color='red.500' fontSize='sm'>{faceErr}</Text>}
                 <Box position="relative" width={{ base: "100%", md: "500px" }} height={{ base: "300px", md: "500px" }} display="inline-block" maxW="500px">
-                  <VideoCanvas size={{ base: 300, md: 500 }} onReady={setVideo} />
+                  <VideoCanvas size={videoSize || 300} onReady={setVideo} />
                   {capturing && (
                     <Box position="absolute" inset={0} display="flex" alignItems="center" justifyContent="center" bg="rgba(0,0,0,0.35)" zIndex={1}>
                       <HStack spacing={3} bg="rgba(255,255,255,0.9)" px={4} py={2} borderRadius="md" boxShadow="md">

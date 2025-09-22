@@ -77,7 +77,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           h={12}
           minW={12}
           onClick={onOpen}
-          _hover={{ bg: "gray.800" }}
+          _hover={isMobile ? undefined : { bg: "gray.800" }}
         >
           <Icon name='menu' size={20} />
         </Button>
@@ -107,7 +107,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                       px={6}
                       py={6}
                       borderRadius='lg'
-                      _hover={{ bg: 'gray.800' }}
+                      _hover={isMobile ? undefined : { bg: 'gray.800' }}
                       bg={active ? 'gray.700' : 'transparent'}
                       color='white'
                       target={item.href === '/kiosk' ? '_blank' : undefined}
@@ -153,7 +153,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     justifyContent={collapsed ? 'center' : 'flex-start'}
                     gap={collapsed ? 0 : 3}
                     borderRadius='lg'
-                    _hover={{ bg: 'rgba(255, 244, 0, 0.16)' }}
+                    _hover={isMobile ? undefined : { bg: 'rgba(255, 244, 0, 0.16)' }}
                     bg={active ? 'rgba(255, 244, 0, 0.28)' : undefined}
                     color='inherit'
                     target={item.href === '/kiosk' ? '_blank' : undefined}
