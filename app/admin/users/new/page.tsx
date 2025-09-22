@@ -36,7 +36,7 @@ export default function NewUserPage() {
   const [showPw, setShowPw] = useState(false);
   const { control, handleSubmit, formState: { isValid, isSubmitting, errors } } = useForm<FormData>({
     mode: 'onBlur',
-    reValidateMode: 'onBlur',
+    reValidateMode: 'onChange',
     resolver: yupResolver(schema) as any,
     defaultValues: { displayName: '', username: '', email: '', password: '', role: 'attendant', active: true },
   });

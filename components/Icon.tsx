@@ -1,4 +1,4 @@
-import { ChevronLeft, Check, FileWarning, ChevronRight, FolderOpen, Monitor, User, Users, LogOut, LogIn, Settings, Edit, Trash2, Plus, Search, Filter, X, CalendarDays, Camera, Clock } from 'lucide-react';
+import { ChevronLeft, Check, FileWarning, ChevronRight, FolderOpen, Monitor, User, Users, LogOut, LogIn, Settings, Edit, Trash2, Plus, Search, Filter, X, CalendarDays, Camera, Clock, Menu } from 'lucide-react';
 import { ComponentProps } from 'react';
 
 export type IconName =
@@ -8,6 +8,7 @@ export type IconName =
   | 'edit' | 'trash' | 'plus'
   | 'search' | 'filter' | 'x' | 'calendar' | 'clock'
   | 'camera'
+  | 'menu'
   | 'checkIcon' | 'warningIcon';
 
 const MAP: Record<IconName, React.ComponentType<ComponentProps<'svg'>>> = {
@@ -31,6 +32,7 @@ const MAP: Record<IconName, React.ComponentType<ComponentProps<'svg'>>> = {
   calendar: CalendarDays,
   clock: Clock,
   camera: Camera,
+  menu: Menu,
 };
 
 export function Icon({ name, size = 18, color = 'currentColor', strokeWidth = 1.75, ...props }: { name: IconName } & ComponentProps<'svg'> & { size?: number; color?: string; strokeWidth?: number }) {

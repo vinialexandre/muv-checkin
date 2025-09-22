@@ -1,6 +1,6 @@
 "use client";
 import { db } from '@/lib/firebase';
-import { AlertDialog, AlertDialogBody, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogOverlay, Badge, Button, Center, HStack, Input, Spinner, Table, Tbody, Td, Text, Th, Thead, Tr, VStack, useToast } from '@chakra-ui/react';
+import { AlertDialog, AlertDialogBody, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogOverlay, Badge, Button, Center, HStack, Input, Spinner, Table, Tbody, Td, Text, Th, Thead, Tr, VStack, useToast, Box, useMediaQuery } from '@chakra-ui/react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { collection, deleteDoc, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
@@ -25,6 +25,7 @@ export default function PlansPage() {
   const router = useRouter();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [filterName, setFilterName] = useState('');
+  const [draftName, setDraftName] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string|undefined>();
   const [deleteId, setDeleteId] = useState<string|undefined>();
@@ -50,6 +51,9 @@ export default function PlansPage() {
     return () => unsub();
   }, []);
 
+
+	const [isMobile] = useMediaQuery('(max-width: 780px)');
+
   const filtered = useMemo(() => plans.filter(p => !filterName || p.name.toLowerCase().includes(filterName.toLowerCase())), [plans, filterName]);
 
   async function removeNow() {
@@ -72,14 +76,24 @@ export default function PlansPage() {
             <Icon name='folder' />
             <Text fontSize="xl" fontWeight={700}>Planos</Text>
           </HStack>
-          <Button variant="secondary" leftIcon={<Icon name='plus' size={16} />} onClick={() => { setNavigating(true); router.push('/admin/plans/new'); }}>Adicionar</Button>
+          <Button variant="secondary" leftIcon={isMobile ? undefined : <Icon name='plus' size={16} />} onClick={() => { setNavigating(true); router.push('/admin/plans/new'); }}>{isMobile ? <Icon name='plus' size={16} /> : 'Adicionar'}</Button>
         </HStack>
         <HStack justify="space-between" mb={2}><Text fontWeight={700}>Filtros</Text></HStack>
-        <HStack spacing={4} wrap="wrap">
-          <Input placeholder="Nome" value={filterName} onChange={(e) => setFilterName(e.target.value)} maxW="240px" />
-          <Button leftIcon={<Icon name='search' size={16} />} onClick={() => {}}>Buscar</Button>
-          <Button variant="outline" onClick={()=>setFilterName('')}>Limpar</Button>
-        </HStack>
+        {isMobile ? (
+          <VStack spacing={4} align="stretch">
+            <Input placeholder="Nome" value={draftName} onChange={(e) => setDraftName(e.target.value)} />
+            <HStack spacing={2} justify="flex-end">
+              <Button leftIcon={<Icon name='search' size={16} />} onClick={() => { setFilterName(draftName.trim()); }}>Buscar</Button>
+              <Button variant="outline" onClick={()=>{ setDraftName(''); setFilterName(''); }}>Limpar</Button>
+            </HStack>
+          </VStack>
+        ) : (
+          <HStack spacing={4} wrap="wrap">
+            <Input placeholder="Nome" value={draftName} onChange={(e) => setDraftName(e.target.value)} maxW="240px" />
+            <Button leftIcon={<Icon name='search' size={16} />} onClick={() => { setFilterName(draftName.trim()); }}>Buscar</Button>
+            <Button variant="outline" onClick={()=>{ setDraftName(''); setFilterName(''); }}>Limpar</Button>
+          </HStack>
+        )}
 
         {loading ? (
           <Center py={10}><Spinner /></Center>
@@ -88,25 +102,46 @@ export default function PlansPage() {
         ) : filtered.length === 0 ? (
           <Center py={6}><Text color="gray.500">Nada encontrado</Text></Center>
         ) : (
-          <Table size="md" mt={5}>
-            <Thead><Tr><Th>Nome</Th><Th>Preço</Th><Th>Período</Th><Th>Status</Th><Th textAlign="right">Ações</Th></Tr></Thead>
-            <Tbody>
+          isMobile ? (
+            <VStack spacing={3} mt={5} align="stretch">
               {filtered.map(p => (
-                <Tr key={p.id}>
-                  <Td>{p.name}</Td>
-                  <Td>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.price || 0)}</Td>
-                  <Td>{labelPeriod(p.period as any)}</Td>
-                  <Td><Badge colorScheme={(p.active===false)?'red':'green'}>{(p.active===false)?'Inativo':'Ativo'}</Badge></Td>
-                  <Td textAlign="right">
-                    <HStack justify="flex-end" spacing={2}>
-                      <Button size="sm" leftIcon={<Icon name='edit' size={16} />} as={Link} href={`/admin/plans/${p.id}/edit` as any}>Editar</Button>
-                      <Button size="sm" variant="outline" leftIcon={<Icon name='trash' size={16} />} colorScheme='red' onClick={() => setDeleteId(p.id)}>Excluir</Button>
+                <Box key={p.id} borderWidth="1px" borderRadius="md" p={4}>
+                  <HStack justify="space-between" align="start">
+                    <VStack align="start" spacing={1}>
+                      <Text fontWeight={700}>{p.name}</Text>
+                      <Text fontSize="sm" color="gray.600">Período: {labelPeriod(p.period as any)}</Text>
+                      <Text fontSize="sm" color="gray.600">Preço: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.price || 0)}</Text>
+                      <Badge colorScheme={(p.active===false)?'red':'green'}>{(p.active===false)?'Inativo':'Ativo'}</Badge>
+                    </VStack>
+                    <HStack spacing={2}>
+                      <Button size="sm" as={Link} href={`/admin/plans/${p.id}/edit` as any}><Icon name='edit' size={16} /></Button>
+                      <Button size="sm" variant="outline" colorScheme='red' onClick={() => setDeleteId(p.id)}><Icon name='trash' size={16} /></Button>
                     </HStack>
-                  </Td>
-                </Tr>
+                  </HStack>
+                </Box>
               ))}
-            </Tbody>
-          </Table>
+            </VStack>
+          ) : (
+            <Table size="md" mt={5}>
+              <Thead><Tr><Th>Nome</Th><Th>Preço</Th><Th>Período</Th><Th>Status</Th><Th textAlign="right">Ações</Th></Tr></Thead>
+              <Tbody>
+                {filtered.map(p => (
+                  <Tr key={p.id}>
+                    <Td>{p.name}</Td>
+                    <Td>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.price || 0)}</Td>
+                    <Td>{labelPeriod(p.period as any)}</Td>
+                    <Td><Badge colorScheme={(p.active===false)?'red':'green'}>{(p.active===false)?'Inativo':'Ativo'}</Badge></Td>
+                    <Td textAlign="right">
+                      <HStack justify="flex-end" spacing={2}>
+                        <Button size="sm" leftIcon={<Icon name='edit' size={16} />} as={Link} href={`/admin/plans/${p.id}/edit` as any}>Editar</Button>
+                        <Button size="sm" variant="outline" leftIcon={<Icon name='trash' size={16} />} colorScheme='red' onClick={() => setDeleteId(p.id)}>Excluir</Button>
+                      </HStack>
+                    </Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          )
         )}
 
         <AlertDialog isOpen={!!deleteId} leastDestructiveRef={cancelRef} onClose={() => setDeleteId(undefined)}>

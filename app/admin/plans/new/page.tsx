@@ -29,7 +29,7 @@ export default function NewPlanPage() {
   const router = useRouter();
   const toast = useToast();
   const { control, handleSubmit, formState:{ errors, isValid, isSubmitting } } = useForm<FormData>({
-    mode:'onBlur', reValidateMode:'onBlur', resolver: yupResolver(schema), defaultValues:{ name:'', priceStr:'', period:'monthly', active: true }
+    mode:'onBlur', reValidateMode:'onChange', resolver: yupResolver(schema), defaultValues:{ name:'', priceStr:'', period:'monthly', active: true }
   });
 
   const save = handleSubmit(async (data)=>{

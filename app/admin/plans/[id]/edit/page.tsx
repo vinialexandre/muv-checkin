@@ -29,7 +29,7 @@ export default function EditPlanPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const toast = useToast();
-  const { control, handleSubmit, formState:{ errors, isValid, isSubmitting }, reset, trigger } = useForm<FormData>({ mode:'onBlur', reValidateMode:'onBlur', resolver: yupResolver(schema), defaultValues:{ name:'', priceStr:'', period:'monthly', active: true } });
+  const { control, handleSubmit, formState:{ errors, isValid, isSubmitting }, reset, trigger } = useForm<FormData>({ mode:'onBlur', reValidateMode:'onChange', resolver: yupResolver(schema), defaultValues:{ name:'', priceStr:'', period:'monthly', active: true } });
   const [loadingPage, setLoadingPage] = useState(true);
 
   useEffect(()=>{

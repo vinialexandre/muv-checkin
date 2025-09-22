@@ -38,9 +38,9 @@ const schema = yup.object({
     .transform(v=>{ const s=String(v||'').trim().toLowerCase(); return s===''? undefined as any : s; })
     .email('E-mail inválido')
     .test('email-req','E-mail obrigatório', function(v){ const bd=(this.parent as any).birthDate; return isMinor(bd) ? true : !!v; }),
-  guardianName: yup.string().optional(),
+  guardianName: yup.string().test('gname-req','Nome do responsável obrigatório', function(v){ const bd=(this.parent as any).birthDate; return isMinor(bd) ? !!String(v||'').trim() : true; }),
   guardianPhone: yup.string().test('gphone','WhatsApp do responsável inválido/obrigatório', function(v){ const bd=(this.parent as any).birthDate; const d=onlyDigits(String(v||'')); const ok=(d.length===10||d.length===11); return isMinor(bd) ? (!!v && ok) : (!v || ok); }),
-  guardianEmail: yup.string().transform(v=>{ const s=String(v||'').trim().toLowerCase(); return s===''? undefined as any : s; }).email('E-mail do responsável inválido').test('gemail-req','E-mail do responsável obrigatório', function(v){ const bd=(this.parent as any).birthDate; return isMinor(bd) ? !!v : true; }),
+  guardianEmail: yup.string().transform(v=>{ const s=String(v||'').trim().toLowerCase(); return s===''? undefined as any : s; }).email('E-mail do responsável inválido'),
   active: yup.boolean().default(true),
   activePlanId: yup.string().required('Plano obrigatório'),
   weightKg: yup.string().optional(),
@@ -63,7 +63,7 @@ export default function EditStudentPage() {
   const [loadingPage, setLoadingPage] = useState(true);
   const { control, handleSubmit, formState: { isValid, isSubmitting }, reset, watch, trigger } = useForm<any>({
     mode: 'onBlur',
-    reValidateMode: 'onBlur',
+    reValidateMode: 'onChange',
     resolver: yupResolver(schema),
     defaultValues: { name:'', birthDate:'', whatsapp:'', email:'', guardianName:'', guardianPhone:'', guardianEmail:'', active:true, activePlanId:'', weightKg:'', heightCm:'', techNotes:'' }
   });
@@ -393,14 +393,14 @@ export default function EditStudentPage() {
                       <Text color="gray.600" fontSize="sm" marginBottom={1} >Obrigatório telefone e e-mail do responsável para menor de idade</Text>
                       <HStack spacing={3} wrap="wrap">
                         <Controller name="guardianName" control={control} render={({ field, fieldState }) => (
-                          <FormControl  isInvalid={!!fieldState.error} isDisabled={!isMinorNow}>
+                          <FormControl  isInvalid={!!fieldState.error} isRequired={isMinorNow} isDisabled={!isMinorNow}>
                             <FormLabel>Nome do responsável</FormLabel>
                             <Input placeholder="Nome do responsável" {...field} />
                             <FormErrorMessage>{fieldState.error?.message as any}</FormErrorMessage>
                           </FormControl>
                         )}/>
                         <Controller name="guardianEmail" control={control} render={({ field, fieldState }) => (
-                          <FormControl marginTop={0.5} isInvalid={!!fieldState.error} isRequired={isMinorNow} isDisabled={!isMinorNow}>
+                          <FormControl marginTop={0.5} isInvalid={!!fieldState.error} isDisabled={!isMinorNow}>
                             <FormLabel>E-mail do responsável</FormLabel>
                             <Input type="email" placeholder="E-mail do responsável" {...field} />
                             <FormErrorMessage>{fieldState.error?.message as any}</FormErrorMessage>

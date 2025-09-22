@@ -2,12 +2,13 @@
 import PageCard from '@/components/PageCard';
 import { db } from '@/lib/firebase';
 import { Student } from '@/lib/firestore';
-import { AlertDialog, AlertDialogBody, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogOverlay, Badge, Button, Center, HStack, Input, Select, Spinner, Table, Tbody, Td, Text, Th, Thead, Tr, VStack, useToast } from '@chakra-ui/react';
+import { AlertDialog, AlertDialogBody, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogOverlay, Badge, Button, Center, HStack, Input, Select, Spinner, Table, Tbody, Td, Text, Th, Thead, Tr, VStack, useToast, Box, useMediaQuery } from '@chakra-ui/react';
 import { Icon } from '@/components/Icon';
 
 import { collection, deleteDoc, doc, getDocs, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { normalizeText } from '@/lib/utils';
 
 type Plan = { id: string; name: string };
 
@@ -52,9 +53,12 @@ export default function StudentsPage() {
     return () => unsub();
   }, []);
 
+	const [isMobile] = useMediaQuery('(max-width: 780px)');
+
+
   const filtered = useMemo(() => {
     return students.filter(s =>
-      (!filterName || (s.name||'').toLowerCase().includes(filterName.toLowerCase())) &&
+      (!filterName || normalizeText(s.name||'').includes(normalizeText(filterName))) &&
       (!filterPlanId || (s.activePlanId||'') === filterPlanId) &&
       (filterStatus === filterAll || (filterStatus === 'active' ? !!s.active : !s.active))
     );
@@ -83,48 +87,86 @@ export default function StudentsPage() {
             <Icon name='users' />
             <Text fontSize="xl" fontWeight={700}>Alunos</Text>
           </HStack>
-          <Button variant="secondary" leftIcon={<Icon name='plus' size={16} />} onClick={openCreate}>Adicionar</Button>
+          <Button variant="secondary" leftIcon={isMobile ? undefined : <Icon name='plus' size={16} />} onClick={openCreate}>{isMobile ? <Icon name='plus' size={16} /> : 'Adicionar'}</Button>
         </HStack>
         <HStack justify="space-between" mb={2}><Text fontWeight={600}>Filtros</Text></HStack>
-        <HStack wrap="wrap" spacing={4}>
-          <Input placeholder="Nome" value={draftName} onChange={(e)=>setDraftName(e.target.value)} maxW="240px" />
-          <Select placeholder="Todos os planos" value={draftPlanId} onChange={(e)=>setDraftPlanId(e.target.value)} maxW="240px">
-            {plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </Select>
-          <Select placeholder="Status" value={draftStatus} onChange={(e)=>setDraftStatus((e.target.value||filterAll) as any)} maxW="180px">
-            <option value="active">Ativo</option>
-            <option value="inactive">Inativo</option>
-            <option value="all">Todos</option>
-          </Select>
-          <Button leftIcon={<Icon name='search' size={16} />} onClick={()=>{ setFilterName(draftName.trim()); setFilterPlanId(draftPlanId); setFilterStatus(draftStatus); }}>Buscar</Button>
-          <Button variant="outline" onClick={()=>{ setDraftName(''); setDraftPlanId(''); setDraftStatus(filterAll); setFilterName(''); setFilterPlanId(''); setFilterStatus(filterAll); }}>Limpar</Button>
-        </HStack>
+        {isMobile ? (
+          <VStack spacing={4} align="stretch">
+            <Input placeholder="Nome" value={draftName} onChange={(e)=>setDraftName(e.target.value)} />
+            <Select placeholder="Todos os planos" value={draftPlanId} onChange={(e)=>setDraftPlanId(e.target.value)}>
+              {plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </Select>
+            <Select placeholder="Status" value={draftStatus} onChange={(e)=>setDraftStatus((e.target.value||filterAll) as any)}>
+              <option value="active">Ativo</option>
+              <option value="inactive">Inativo</option>
+              <option value="all">Todos</option>
+            </Select>
+            <HStack spacing={2} justify="flex-end">
+              <Button leftIcon={<Icon name='search' size={16} />} onClick={()=>{ setFilterName(draftName.trim()); setFilterPlanId(draftPlanId); setFilterStatus(draftStatus); }}>Buscar</Button>
+              <Button variant="outline" onClick={()=>{ setDraftName(''); setDraftPlanId(''); setDraftStatus(filterAll); setFilterName(''); setFilterPlanId(''); setFilterStatus(filterAll); }}>Limpar</Button>
+            </HStack>
+          </VStack>
+        ) : (
+          <HStack wrap="wrap" spacing={4}>
+            <Input placeholder="Nome" value={draftName} onChange={(e)=>setDraftName(e.target.value)} maxW="240px" />
+            <Select placeholder="Todos os planos" value={draftPlanId} onChange={(e)=>setDraftPlanId(e.target.value)} maxW="240px">
+              {plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </Select>
+            <Select placeholder="Status" value={draftStatus} onChange={(e)=>setDraftStatus((e.target.value||filterAll) as any)} maxW="180px">
+              <option value="active">Ativo</option>
+              <option value="inactive">Inativo</option>
+              <option value="all">Todos</option>
+            </Select>
+            <Button leftIcon={<Icon name='search' size={16} />} onClick={()=>{ setFilterName(draftName.trim()); setFilterPlanId(draftPlanId); setFilterStatus(draftStatus); }}>Buscar</Button>
+            <Button variant="outline" onClick={()=>{ setDraftName(''); setDraftPlanId(''); setDraftStatus(filterAll); setFilterName(''); setFilterPlanId(''); setFilterStatus(filterAll); }}>Limpar</Button>
+          </HStack>
+        )}
 
         {loading ? (
           <Center py={10}><Spinner /></Center>
         ) : error ? (
           <Center py={6}><Text color="red.500">{error}</Text></Center>
         ) : filtered.length === 0 ? (
-          <Center py={6}><Text color="gray.500">Nada encontrado</Text></Center>
+          <Center py={6}><Text color="gray.500">Nenhum resultado encontrado</Text></Center>
         ) : (
-          <Table size="md" mt={5}>
-            <Thead><Tr><Th>Nome</Th><Th>Plano</Th><Th>Status</Th><Th textAlign="right">Ações</Th></Tr></Thead>
-            <Tbody>
+          isMobile ? (
+            <VStack spacing={3} mt={5} align="stretch">
               {filtered.map(s => (
-                <Tr key={s.id}>
-                  <Td>{s.name}</Td>
-                  <Td>{plans.find(p => p.id === s.activePlanId)?.name || '-'}</Td>
-                  <Td>{s.active ? <Badge colorScheme='green'>Ativo</Badge> : <Badge colorScheme='red'>Inativo</Badge>}</Td>
-                  <Td textAlign="right">
-                    <HStack justify="flex-end" spacing={2}>
-                      <Button size="sm" leftIcon={<Icon name='edit' size={16} />} onClick={()=>openEdit(s.id)}>Editar</Button>
-                      <Button size="sm" variant="outline" leftIcon={<Icon name='trash' size={16} />} colorScheme='red' onClick={()=>setDeleteId(s.id)}>Excluir</Button>
+                <Box key={s.id} borderWidth="1px" borderRadius="md" p={4}>
+                  <HStack justify="space-between" align="start">
+                    <VStack align="start" spacing={1}>
+                      <Text fontWeight={700}>{s.name}</Text>
+                      <Text fontSize="sm" color="gray.600">Plano: {plans.find(p => p.id === s.activePlanId)?.name || '-'}</Text>
+                      <Badge colorScheme={s.active ? 'green' : 'red'}>{s.active ? 'Ativo' : 'Inativo'}</Badge>
+                    </VStack>
+                    <HStack spacing={2}>
+                      <Button size="sm" onClick={()=>openEdit(s.id)}><Icon name='edit' size={16} /></Button>
+                      <Button size="sm" variant="outline" colorScheme='red' onClick={()=>setDeleteId(s.id)}><Icon name='trash' size={16} /></Button>
                     </HStack>
-                  </Td>
-                </Tr>
+                  </HStack>
+                </Box>
               ))}
-            </Tbody>
-          </Table>
+            </VStack>
+          ) : (
+            <Table size="md" mt={5}>
+              <Thead><Tr><Th>Nome</Th><Th>Plano</Th><Th>Status</Th><Th textAlign="right">Ações</Th></Tr></Thead>
+              <Tbody>
+                {filtered.map(s => (
+                  <Tr key={s.id}>
+                    <Td>{s.name}</Td>
+                    <Td>{plans.find(p => p.id === s.activePlanId)?.name || '-'}</Td>
+                    <Td>{s.active ? <Badge colorScheme='green'>Ativo</Badge> : <Badge colorScheme='red'>Inativo</Badge>}</Td>
+                    <Td textAlign="right">
+                      <HStack justify="flex-end" spacing={2}>
+                        <Button size="sm" leftIcon={<Icon name='edit' size={16} />} onClick={()=>openEdit(s.id)}>Editar</Button>
+                        <Button size="sm" variant="outline" leftIcon={<Icon name='trash' size={16} />} colorScheme='red' onClick={()=>setDeleteId(s.id)}>Excluir</Button>
+                      </HStack>
+                    </Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          )
         )}
 
         <AlertDialog isOpen={!!deleteId} leastDestructiveRef={cancelRef} onClose={()=>setDeleteId(undefined)}>

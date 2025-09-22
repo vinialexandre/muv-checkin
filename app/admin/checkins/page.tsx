@@ -1,11 +1,12 @@
 "use client";
 import { useEffect, useState } from 'react';
 import { Icon } from '@/components/Icon';
-import { Badge, Box, Button, Heading, HStack, Table, Tbody, Td, Text, Th, Thead, Tr, VStack, useToast, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter, ModalCloseButton, FormControl, FormLabel, Select, Input, Spinner } from '@chakra-ui/react';
+import { Badge, Box, Button, Heading, HStack, Table, Tbody, Td, Text, Th, Thead, Tr, VStack, useToast, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter, ModalCloseButton, FormControl, FormLabel, Select, Input, Spinner, useMediaQuery } from '@chakra-ui/react';
 import PageCard from '@/components/PageCard';
 import { CheckIn, exportCheckInsCsvForMonth, createCheckIn } from '@/lib/firestore';
 import { collection, getDocs, query, orderBy, limit, Timestamp, doc, getDoc, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { normalizeText } from '@/lib/utils';
 
 type CheckInWithStudent = CheckIn & {
   studentName?: string;
@@ -55,6 +56,9 @@ export default function CheckInsPage() {
     })();
   }, []);
 
+
+	const [isMobile] = useMediaQuery('(max-width: 780px)');
+
   async function loadData() {
     setLoading(true);
     try {
@@ -86,8 +90,8 @@ export default function CheckInsPage() {
         })
       );
 
-      const text = filterStudentText.trim().toLowerCase();
-      const filteredByName = text ? checkInsData.filter(c => (c.studentName||'').toLowerCase().includes(text)) : checkInsData;
+      const text = filterStudentText.trim();
+      const filteredByName = text ? checkInsData.filter(c => normalizeText(c.studentName||'').includes(normalizeText(text))) : checkInsData;
       setCheckIns(filteredByName);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
@@ -184,80 +188,126 @@ export default function CheckInsPage() {
             <Heading size="lg">Histórico de Check-ins</Heading>
           </HStack>
           <HStack>
-            <Button size="sm" leftIcon={<Icon name="plus" size={16} />} onClick={openManual}>
-              Adicionar
+            <Button variant="secondary" leftIcon={isMobile ? undefined : <Icon name="plus" size={16} />} onClick={openManual}>
+              {isMobile ? <Icon name="plus" size={16} /> : 'Adicionar'}
             </Button>
-            <Button onClick={loadData} variant="outline" size="sm" isLoading={loading}>
-              Atualizar
-            </Button>
-            <Button onClick={exportCurrentMonth} variant="secondary" size="sm">
-              Exportar CSV (Mês Atual)
-            </Button>
+            {!isMobile && (
+              <Button onClick={exportCurrentMonth} variant="outline" size="sm">
+                Exportar CSV (Mês Atual)
+              </Button>
+            )}
           </HStack>
         </HStack>
 
         <HStack justify="space-between" mb={1}><Text fontWeight={700}>Filtros</Text></HStack>
-        <HStack spacing={3} alignItems="flex-end">
-          <FormControl maxW="280px">
-            <FormLabel>Aluno</FormLabel>
-            <Input placeholder="Nome do aluno" value={filterStudentText} onChange={(e)=>setFilterStudentText(e.target.value)} />
-          </FormControl>
-          <FormControl>
-            <FormLabel>Data início</FormLabel>
-            <Input type="date" value={filterStart} onChange={(e)=>setFilterStart(e.target.value)} />
-          </FormControl>
-          <FormControl>
-            <FormLabel>Data fim</FormLabel>
-            <Input type="date" value={filterEnd} onChange={(e)=>setFilterEnd(e.target.value)} />
-          </FormControl>
-          <FormControl maxW="220px">
-            <FormLabel>Período</FormLabel>
-            <Select placeholder="Customizado" value={preset} onChange={(e)=>{ const v=e.target.value; setPreset(v); if (v) applyPresetDays(parseInt(v)); }}>
-              <option value="7">Últimos 7 dias</option>
-              <option value="15">Últimos 15 dias</option>
-              <option value="30">Últimos 30 dias</option>
-              <option value="90">Últimos 90 dias</option>
-            </Select>
-          </FormControl>
-          <HStack>
-            <Button leftIcon={<Icon name='search' size={16} />} onClick={loadData} isLoading={loading}>Buscar</Button>
-            <Button variant="outline" onClick={()=>{ const last7 = computeLastNDays(7); setFilterStudentText(''); setFilterStart(last7.start); setFilterEnd(last7.end); setPreset('7'); loadData(); }}>Limpar</Button>
+        {isMobile ? (
+          <VStack spacing={4} align="stretch">
+            <FormControl>
+              <FormLabel>Aluno</FormLabel>
+              <Input placeholder="Nome do aluno" value={filterStudentText} onChange={(e)=>setFilterStudentText(e.target.value)} />
+            </FormControl>
+            <FormControl>
+              <FormLabel>Data início</FormLabel>
+              <Input type="date" value={filterStart} onChange={(e)=>setFilterStart(e.target.value)} />
+            </FormControl>
+            <FormControl>
+              <FormLabel>Data fim</FormLabel>
+              <Input type="date" value={filterEnd} onChange={(e)=>setFilterEnd(e.target.value)} />
+            </FormControl>
+            <FormControl>
+              <FormLabel>Período</FormLabel>
+              <Select placeholder="Customizado" value={preset} onChange={(e)=>{ const v=e.target.value; setPreset(v); if (v) applyPresetDays(parseInt(v)); }}>
+                <option value="7">Últimos 7 dias</option>
+                <option value="15">Últimos 15 dias</option>
+                <option value="30">Últimos 30 dias</option>
+                <option value="90">Últimos 90 dias</option>
+              </Select>
+            </FormControl>
+            <HStack spacing={2} justify="flex-end">
+              <Button leftIcon={<Icon name='search' size={16} />} onClick={loadData} isLoading={loading}>Buscar</Button>
+              <Button variant="outline" onClick={()=>{ const last7 = computeLastNDays(7); setFilterStudentText(''); setFilterStart(last7.start); setFilterEnd(last7.end); setPreset('7'); loadData(); }}>Limpar</Button>
+            </HStack>
+          </VStack>
+        ) : (
+          <HStack spacing={3} alignItems="flex-end">
+            <FormControl maxW="280px">
+              <FormLabel>Aluno</FormLabel>
+              <Input placeholder="Nome do aluno" value={filterStudentText} onChange={(e)=>setFilterStudentText(e.target.value)} />
+            </FormControl>
+            <FormControl>
+              <FormLabel>Data início</FormLabel>
+              <Input type="date" value={filterStart} onChange={(e)=>setFilterStart(e.target.value)} />
+            </FormControl>
+            <FormControl>
+              <FormLabel>Data fim</FormLabel>
+              <Input type="date" value={filterEnd} onChange={(e)=>setFilterEnd(e.target.value)} />
+            </FormControl>
+            <FormControl maxW="220px">
+              <FormLabel>Período</FormLabel>
+              <Select placeholder="Customizado" value={preset} onChange={(e)=>{ const v=e.target.value; setPreset(v); if (v) applyPresetDays(parseInt(v)); }}>
+                <option value="7">Últimos 7 dias</option>
+                <option value="15">Últimos 15 dias</option>
+                <option value="30">Últimos 30 dias</option>
+                <option value="90">Últimos 90 dias</option>
+              </Select>
+            </FormControl>
+            <HStack>
+              <Button leftIcon={<Icon name='search' size={16} />} onClick={loadData} isLoading={loading}>Buscar</Button>
+              <Button variant="outline" onClick={()=>{ const last7 = computeLastNDays(7); setFilterStudentText(''); setFilterStart(last7.start); setFilterEnd(last7.end); setPreset('7'); loadData(); }}>Limpar</Button>
+            </HStack>
           </HStack>
-        </HStack>
+        )}
 
         {loading ? (
           <Text>Carregando...</Text>
         ) : (
           <Box overflowX="auto">
-            <Table variant="simple">
-              <Thead>
-                <Tr>
-                  <Th>Aluno</Th>
-                  <Th>Data</Th>
-                  <Th>Horário</Th>
-                  <Th>Tipo</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
+            {isMobile ? (
+              <VStack spacing={3} align="stretch">
                 {checkIns.map((checkIn) => {
                   const { date, time } = formatDateTime(checkIn.createdAt);
                   return (
-                    <Tr key={checkIn.id}>
-                      <Td fontWeight="medium">{checkIn.studentName}</Td>
-                      <Td>{date}</Td>
-                      <Td>{time}</Td>
-                      <Td>{getSourceBadge(checkIn.source)}</Td>
-                    </Tr>
+                    <Box key={checkIn.id} borderWidth="1px" borderRadius="md" p={4}>
+                      <VStack align="start" spacing={1}>
+                        <Text fontWeight="700">{checkIn.studentName}</Text>
+                        <HStack><Text fontSize="sm" color="gray.600">Data:</Text><Text>{date}</Text></HStack>
+                        <HStack><Text fontSize="sm" color="gray.600">Hora:</Text><Text>{time}</Text></HStack>
+                        {getSourceBadge(checkIn.source)}
+                      </VStack>
+                    </Box>
                   );
                 })}
-              </Tbody>
-            </Table>
+              </VStack>
+            ) : (
+              <Table variant="simple">
+                <Thead>
+                  <Tr>
+                    <Th>Aluno</Th>
+                    <Th>Data</Th>
+                    <Th>Horário</Th>
+                    <Th>Tipo</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {checkIns.map((checkIn) => {
+                    const { date, time } = formatDateTime(checkIn.createdAt);
+                    return (
+                      <Tr key={checkIn.id}>
+                        <Td fontWeight="medium">{checkIn.studentName}</Td>
+                        <Td>{date}</Td>
+                        <Td>{time}</Td>
+                        <Td>{getSourceBadge(checkIn.source)}</Td>
+                      </Tr>
+                    );
+                  })}
+                </Tbody>
+              </Table>
+            )}
 
             {checkIns.length === 0 && (
               <Box textAlign="center" py={8}>
-                <Text color="gray.500">Nenhum check-in encontrado</Text>
+                <Text color="gray.500">Nenhum resultado encontrado</Text>
               </Box>
-
             )}
           </Box>
         )}

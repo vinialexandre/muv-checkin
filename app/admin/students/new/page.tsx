@@ -49,9 +49,9 @@ export default function NewStudentPage() {
       .transform(v=>{ const s=String(v||'').trim().toLowerCase(); return s===''? undefined as any : s; })
       .email('E-mail inválido')
       .test('email-req','E-mail obrigatório', function(v){ const bd=(this.parent as any).birthDate; return isMinor(bd) ? true : !!v; }),
-    guardianName: yup.string().optional(),
+    guardianName: yup.string().test('gname-req','Nome do responsável obrigatório', function(v){ const bd=(this.parent as any).birthDate; return isMinor(bd) ? !!String(v||'').trim() : true; }),
     guardianPhone: yup.string().test('gphone','WhatsApp do responsável inválido/obrigatório', function(v){ const bd=(this.parent as any).birthDate; const d=onlyDigits(String(v||'')); const ok=(d.length===10||d.length===11); return isMinor(bd) ? (!!v && ok) : (!v || ok); }),
-    guardianEmail: yup.string().transform(v=>{ const s=String(v||'').trim().toLowerCase(); return s===''? undefined as any : s; }).email('E-mail do responsável inválido').test('gemail-req','E-mail do responsável obrigatório', function(v){ const bd=(this.parent as any).birthDate; return isMinor(bd) ? !!v : true; }),
+    guardianEmail: yup.string().transform(v=>{ const s=String(v||'').trim().toLowerCase(); return s===''? undefined as any : s; }).email('E-mail do responsável inválido'),
     active: yup.boolean().default(true),
     activePlanId: yup.string().required('Plano obrigatório'),
     weightKg: yup.string().optional(),
@@ -63,7 +63,7 @@ export default function NewStudentPage() {
 
   const { control, handleSubmit, formState: { isValid, isSubmitting }, watch } = useForm<any>({
     mode: 'onBlur',
-    reValidateMode: 'onBlur',
+    reValidateMode: 'onChange',
     resolver: yupResolver(schema),
     defaultValues: { name:'', birthDate:'', whatsapp:'', email:'', guardianName:'', guardianPhone:'', guardianEmail:'', active:true, activePlanId:'', weightKg:'', heightCm:'', techNotes:'' }
   });
@@ -257,20 +257,20 @@ export default function NewStudentPage() {
                       </HStack>
                     </VStack>
 
-                    {/* Coluna 2: respons e1vel */}
+                    {/* Coluna 2: responsável */}
                     <VStack align="stretch" spacing={2}>
                       <Text fontWeight={600} marginTop={5}>Dados do responsável</Text>
-                      <Text color="gray.600" fontSize="sm" marginBottom={1}>Obrigatório telefone e e-mail do responsável para menor de idade</Text>
+                      <Text color="gray.600" fontSize="sm" marginBottom={1}>Obrigatório Whatsapp do responsável para menor de idade</Text>
                       <HStack spacing={3} wrap="wrap">
                         <Controller name="guardianName" control={control} render={({ field, fieldState }) => (
-                          <FormControl isInvalid={!!fieldState.error} isDisabled={!isMinorNow}>
+                          <FormControl isInvalid={!!fieldState.error} isRequired={isMinorNow} isDisabled={!isMinorNow}>
                             <FormLabel>Nome do responsável</FormLabel>
                             <Input placeholder="Nome do responsável" {...field} />
                             <FormErrorMessage>{fieldState.error?.message as any}</FormErrorMessage>
                           </FormControl>
                         )}/>
                         <Controller name="guardianEmail" control={control} render={({ field, fieldState }) => (
-                          <FormControl marginTop={0.5} isInvalid={!!fieldState.error} isRequired={isMinorNow} isDisabled={!isMinorNow}>
+                          <FormControl marginTop={0.5} isInvalid={!!fieldState.error} isDisabled={!isMinorNow}>
                             <FormLabel>E-mail do responsável</FormLabel>
                             <Input type="email" placeholder="E-mail do responsável" {...field} />
                             <FormErrorMessage>{fieldState.error?.message as any}</FormErrorMessage>
@@ -342,37 +342,36 @@ export default function NewStudentPage() {
           <TabPanel>
             <PageCard>
               <VStack align="stretch" spacing={4}>
-                <HStack justify="space-between" align="center">
+                <VStack align="stretch" spacing={3}>
                   <HStack>
                     <Icon name='camera' />
                     <Text fontSize="lg" fontWeight={700}>Biometria facial</Text>
                   </HStack>
-                  <HStack spacing={2}>
-                    <Badge colorScheme={faceReady ? 'green' : faceErr ? 'red' : 'gray'}>
+                  <VStack align="stretch" spacing={2}>
+                    <Badge colorScheme={faceReady ? 'green' : faceErr ? 'red' : 'gray'} alignSelf="flex-start">
                       Modelos {faceReady ? 'OK' : faceErr ? 'Erro' : 'Carregando'}
                     </Badge>
-                    <Badge colorScheme={video ? 'green' : 'gray'}>Câmera {video ? 'OK' : 'Off'}</Badge>
-                    <Badge colorScheme={samples.length>=3?'green':'red'}>{samples.length>=3 ? `${samples.length} amostras` : 'mín. 3 amostras'}</Badge>
-                  </HStack>
-                </HStack>
+                    <Badge colorScheme={samples.length>=3?'green':'red'} alignSelf="flex-start">{samples.length>=3 ? `${samples.length} amostras` : 'mín. 3 amostras'}</Badge>
+                  </VStack>
+                </VStack>
                 <Text color="gray.600">Colete ao menos 3 amostras com boa iluminação, centralizando o rosto.</Text>
                 {!!faceErr && <Text color='red.500' fontSize='sm'>{faceErr}</Text>}
-                <Box position="relative" width="500px" height="500px" display="inline-block">
-  <VideoCanvas size={500} onReady={setVideo} />
-  {capturing && (
-    <Box position="absolute" inset={0} display="flex" alignItems="center" justifyContent="center" bg="rgba(0,0,0,0.35)" zIndex={1}>
-      <HStack spacing={3} bg="rgba(255,255,255,0.9)" px={4} py={2} borderRadius="md" boxShadow="md">
-        <Spinner size="sm" />
-        <Text color="gray.800" fontWeight={600}>Capturando...</Text>
-      </HStack>
-    </Box>
-  )}
-</Box>
+                <Box position="relative" width={{ base: "100%", md: "500px" }} height={{ base: "300px", md: "500px" }} display="inline-block" maxW="500px">
+                  <VideoCanvas size={{ base: 300, md: 500 }} onReady={setVideo} />
+                  {capturing && (
+                    <Box position="absolute" inset={0} display="flex" alignItems="center" justifyContent="center" bg="rgba(0,0,0,0.35)" zIndex={1}>
+                      <HStack spacing={3} bg="rgba(255,255,255,0.9)" px={4} py={2} borderRadius="md" boxShadow="md">
+                        <Spinner size="sm" />
+                        <Text color="gray.800" fontWeight={600}>Capturando...</Text>
+                      </HStack>
+                    </Box>
+                  )}
+                </Box>
                 <LivenessHint ok={livenessOk} />
-                <HStack>
+                <VStack align="stretch" spacing={2}>
                   <Button variant='secondary' onClick={captureSample} isDisabled={!video || !faceReady || capturing || samples.length>=5} isLoading={capturing} loadingText="Capturando...">Capturar amostra</Button>
-                  <Text color="gray.700">Amostras coletadas: {samples.length}/5</Text>
-                </HStack>
+                  <Text color="gray.700" textAlign="center">Amostras coletadas: {samples.length}/5</Text>
+                </VStack>
                 {photoPreviews.length>0 && (
                   <SimpleGrid columns={{ base: 3, md: 5 }} spacing={2}>
                     {photoPreviews.map((src, i)=> (
