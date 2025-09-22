@@ -19,7 +19,10 @@ const schema = yup.object({
   username: yup.string().trim().transform(v=>String(v||'').toLowerCase())
     .matches(usernameRegex,'Use apenas letras minúsculas, números, ponto, traço ou sublinhado (3–30)')
     .required('Usuário obrigatório'),
-  email: yup.string().transform(v=>normalizeEmail(String(v||''))).email('Email inválido').required('Email obrigatório'),
+  email: yup.string()
+    .transform(v=>{ const s = normalizeEmail(String(v||'')); return s==='' ? undefined as any : s; })
+    .email('Email inválido')
+    .optional(),
   password: yup.string().min(6,'Senha mínima de 6').required('Senha obrigatória'),
   role: yup.mixed<'admin'|'developer'|'attendant'>().oneOf(['admin','developer','attendant']).required(),
   active: yup.boolean().required(),
@@ -34,12 +37,14 @@ export default function NewUserPage() {
   const { control, handleSubmit, formState: { isValid, isSubmitting, errors } } = useForm<FormData>({
     mode: 'onBlur',
     reValidateMode: 'onBlur',
-    resolver: yupResolver(schema),
+    resolver: yupResolver(schema) as any,
     defaultValues: { displayName: '', username: '', email: '', password: '', role: 'attendant', active: true },
   });
 
   const save = handleSubmit(async (data) => {
-    const payload = { ...data, email: normalizeEmail(data.email), username: String((data as any).username||'').toLowerCase(), active: !!data.active };
+    const emailNorm = normalizeEmail(String((data as any).email||''));
+    const payload: any = { displayName: data.displayName, username: String((data as any).username||'').toLowerCase(), active: !!data.active, password: data.password, role: (data as any).role };
+    if (emailNorm) payload.email = emailNorm;
     const res = await fetch('/api/users/create', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     if (!res.ok) { const b = await res.json().catch(()=>({})); throw new Error(b?.error || `Erro ${res.status}`); }
     toast({ title:'Usuário criado', status:'success' });
@@ -72,7 +77,7 @@ export default function NewUserPage() {
 
 
           <Controller name="email" control={control} render={({ field }) => (
-            <FormControl isInvalid={!!errors.email} isRequired>
+            <FormControl isInvalid={!!errors.email}>
               <FormLabel>Email</FormLabel>
               <Input
                 {...field}

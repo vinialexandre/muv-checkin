@@ -34,7 +34,7 @@ export default function EditUserPage() {
   const { control, handleSubmit, reset, formState: { isValid, isSubmitting, errors } } = useForm<FormData>({
     mode: 'onBlur',
     reValidateMode: 'onBlur',
-    resolver: yupResolver(schema),
+    resolver: yupResolver(schema) as any,
     defaultValues: { displayName: '', username: '', role: 'attendant', active: true, newPassword: '', confirmPassword: '' }
   });
 

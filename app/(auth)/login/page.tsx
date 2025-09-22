@@ -1,9 +1,10 @@
 "use client";
 import { auth } from '@/lib/firebase';
-import { Button, Card, CardBody, FormControl, FormLabel, Heading, Input, Stack, useToast, Image } from '@chakra-ui/react';
+import { Button, Card, CardBody, FormControl, FormLabel, Heading, Input, Stack, useToast, Image, InputGroup, InputRightElement, IconButton } from '@chakra-ui/react';
 import { ptAuthMessage } from '@/lib/errors';
 import { signInWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail } from 'firebase/auth';
 import { useEffect, useState, FormEvent } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
@@ -11,6 +12,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [, setError] = useState<string|undefined>();
   const [loading, setLoading] = useState(false);
+  const [showPw, setShowPw] = useState(false);
 
   const router = useRouter();
   const toast = useToast();
@@ -95,7 +97,12 @@ export default function LoginPage() {
           </FormControl>
           <FormControl mb={4}>
             <FormLabel>Senha</FormLabel>
-            <Input value={password} onChange={(e)=>setPassword(e.target.value)} type="password" isDisabled={loading} />
+            <InputGroup>
+              <Input value={password} onChange={(e)=>setPassword(e.target.value)} type={showPw ? 'text' : 'password'} isDisabled={loading} />
+              <InputRightElement>
+                <IconButton aria-label={showPw ? 'Ocultar senha' : 'Mostrar senha'} size="sm" variant="ghost" onClick={()=>setShowPw(v=>!v)} icon={showPw ? <EyeOff size={16}/> : <Eye size={16}/>} />
+              </InputRightElement>
+            </InputGroup>
           </FormControl>
           <Button variant="link" size="sm" onClick={forgot} mb={2} type="button" isDisabled={loading}>Esqueceu a senha?</Button>
           <Button type="submit" w="full" isLoading={loading} isDisabled={loading}>Entrar</Button>

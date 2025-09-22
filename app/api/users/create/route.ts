@@ -17,10 +17,13 @@ export async function POST(req: NextRequest) {
     const existing = await unameRef.get();
     if (existing.exists) return NextResponse.json({ error: 'Nome de usuário já está em uso' }, { status: 400 });
 
-    const user = await adminAuth.createUser({ email, password, displayName, emailVerified: true });
+    const emailToUse = email && String(email).trim() ? String(email).trim() : `${uname}@example.invalid`;
+    const createArgs: any = { displayName, email: emailToUse, emailVerified: true };
+    if (password) { createArgs.password = password; }
+    const user = await adminAuth.createUser(createArgs);
     await adminAuth.setCustomUserClaims(user.uid, { role, active: active === undefined ? true : !!active, username: uname });
 
-    await unameRef.set({ uid: user.uid, email, username: uname });
+    await unameRef.set({ uid: user.uid, email: emailToUse, username: uname });
 
     return NextResponse.json({ ok: true, uid: user.uid });
   } catch (e: any) {
