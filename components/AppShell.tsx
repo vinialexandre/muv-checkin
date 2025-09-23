@@ -1,5 +1,5 @@
 "use client";
-import { Box, Flex, Link as CLink, Button, Text, Image, Progress, Spinner, HStack, VStack, Drawer, DrawerOverlay, DrawerContent, DrawerHeader, DrawerBody, DrawerCloseButton, useDisclosure, useMediaQuery } from '@chakra-ui/react';
+import { Box, Flex, Link as CLink, Button, Text, Image, Progress, Spinner, HStack, VStack, Drawer, DrawerOverlay, DrawerContent, DrawerHeader, DrawerBody, DrawerCloseButton, useDisclosure, useMediaQuery, Tooltip } from '@chakra-ui/react';
 import Link from 'next/link';
 import { signOut, onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -35,7 +35,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
   useEffect(() => {
     try {
-      const v = typeof window !== 'undefined' ? localStorage.getItem('navCollapsed') === '1' : false;
+      const v = localStorage.getItem('navCollapsed') === '1';
       setCollapsed(v);
     } catch {}
   }, []);
@@ -43,7 +43,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [isMobile] = useMediaQuery('(max-width: 780px)');
 
   return (
-    <Flex direction="column" minH="100vh" bg="brand.primary">
+    <Flex direction="column" minH="100vh" bg="brand.primary" suppressHydrationWarning>
       <Flex as='header' position='fixed' top={0} left={0} right={0} zIndex={1001} bg='brand.primary' borderBottom='1px solid' borderColor='gray.200' h='64px' px={6} align='center' justify='space-between'>
         <HStack>
           <Image src='/logo-muv.png' alt='MUV' height='60px' width='auto' />
@@ -129,7 +129,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </Flex>
       </Flex>
       <Flex flex='1' overflow='hidden' pt='64px'>
-        <Flex direction='column' bg='brand.secondary' color='brand.primary' w={collapsed ? '100px' : '264px'} transition='width 0.2s ease' p={4} overflowY='auto' display={isMobile ? 'none' : 'flex'}>
+        <Flex direction='column' bg='brand.secondary' color='brand.primary' w={collapsed ? '100px' : '264px'} transition='width 0.2s ease' p={4} overflowY='auto' display={isMobile ? 'none' : 'flex'} position='fixed' top='64px' bottom={0} left={0} zIndex={999}>
           <Box flex='1'>
             {navItems
               .filter(item => {
@@ -141,54 +141,57 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               .map(item => {
                 const active = pathname?.startsWith(item.href);
                 return (
-                  <CLink
-                    as={Link}
-                    key={item.href}
-                    href={item.href}
-                    onClick={!active && item.href !== '/kiosk' ? (()=> setNavLoading(true)) : undefined}
-                    px={4}
-                    py={3}
-                    display='flex'
-                    alignItems='center'
-                    justifyContent={collapsed ? 'center' : 'flex-start'}
-                    gap={collapsed ? 0 : 3}
-                    borderRadius='lg'
-                    _hover={isMobile ? undefined : { bg: 'rgba(255, 244, 0, 0.16)' }}
-                    bg={active ? 'rgba(255, 244, 0, 0.28)' : undefined}
-                    color='inherit'
-                    target={item.href === '/kiosk' ? '_blank' : undefined}
-                    rel={item.href === '/kiosk' ? 'noopener noreferrer' : undefined}
-                  >
-                    <Icon name={item.icon} size={collapsed ? 22 : 18} />
-                    {!collapsed && <span>{item.label}</span>}
-                  </CLink>
+                  <Tooltip key={item.href} label={item.label} placement='right' isDisabled={!collapsed}>
+                    <CLink
+                      as={Link}
+                      href={item.href}
+                      onClick={!active && item.href !== '/kiosk' ? (()=> setNavLoading(true)) : undefined}
+                      px={4}
+                      py={3}
+                      display='flex'
+                      alignItems='center'
+                      justifyContent={collapsed ? 'center' : 'flex-start'}
+                      gap={collapsed ? 0 : 3}
+                      borderRadius='lg'
+                      _hover={isMobile ? undefined : { bg: 'rgba(255, 244, 0, 0.16)' }}
+                      bg={active ? 'rgba(255, 244, 0, 0.28)' : undefined}
+                      color='inherit'
+                      target={item.href === '/kiosk' ? '_blank' : undefined}
+                      rel={item.href === '/kiosk' ? 'noopener noreferrer' : undefined}
+                    >
+                      <Icon name={item.icon} size={collapsed ? 22 : 18} />
+                      {!collapsed && <span>{item.label}</span>}
+                    </CLink>
+                  </Tooltip>
                 );
               })}
           </Box>
 
         </Flex>
-        <Box as='main' p={isMobile ? 4 : 8} flex='1' overflowY='auto'>{children}</Box>
+        <Box as='main' p={isMobile ? 4 : 8} flex='1' overflowY='auto' ml={isMobile ? 0 : (collapsed ? '100px' : '264px')} transition='margin-left 0.2s ease'>{children}</Box>
       </Flex>
       {!isMobile && (
-        <Button
-          position='fixed'
-          bottom={4}
-          left={collapsed ? '50px' : '132px'}
-          transform='translateX(-50%)'
-          zIndex={1000}
-          size='md'
-          variant='ghost'
-          color='brand.primary'
-          bg='brand.secondary'
-          transition='left 0.2s ease'
-          onClick={() => {
-            const v = !collapsed; setCollapsed(v); if (typeof window !== 'undefined') localStorage.setItem('navCollapsed', v ? '1' : '0');
-          }}
-          leftIcon={collapsed ? <Icon name='chevronRight' size={22} /> : <Icon name='chevronLeft' size={20} />}
-          _hover={{ bg: 'rgba(255, 244, 0, 0.16)' }}
-        >
-          {!collapsed ? 'Recolher' : null}
-        </Button>
+        <Tooltip label={collapsed ? 'Expandir' : 'Recolher'} placement='right' isDisabled={!collapsed}>
+          <Button
+            position='fixed'
+            bottom={4}
+            left={collapsed ? '50px' : '132px'}
+            transform='translateX(-50%)'
+            zIndex={1000}
+            size='md'
+            variant='ghost'
+            color='brand.primary'
+            bg='brand.secondary'
+            transition='left 0.2s ease'
+            onClick={() => {
+              const v = !collapsed; setCollapsed(v); localStorage.setItem('navCollapsed', v ? '1' : '0');
+            }}
+            leftIcon={collapsed ? <Icon name='chevronRight' size={22} /> : <Icon name='chevronLeft' size={20} />}
+            _hover={{ bg: 'rgba(255, 244, 0, 0.16)' }}
+          >
+            {!collapsed ? 'Recolher' : null}
+          </Button>
+        </Tooltip>
       )}
     </Flex>
   );

@@ -188,11 +188,11 @@ export default function UsersPage() {
           </VStack>
         ) : (
           <Table size="md" variant="simple" mt={5}>
-            <Thead><Tr><Th>Nome</Th><Th>Email</Th><Th>Papel</Th><Th>Status</Th><Th textAlign="right">Ações</Th></Tr></Thead>
+            <Thead><Tr><Th>Nome</Th><Th>Email</Th><Th>Papel</Th><Th>Status</Th><Th textAlign="right" pr={24}>Ações</Th></Tr></Thead>
             <Tbody>
               {filtered.map(u => (
                 <Tr key={u.uid}>
-                  <Td>{u.displayName||'-'}</Td>
+                  <Td fontWeight="medium">{u.displayName||'-'}</Td>
                   <Td>{(!u.email || isFakeEmail(u.email)) ? 'não informado' : u.email}</Td>
                   <Td>{labelForRole(u.role)}</Td>
                   <Td><Badge colorScheme={(u.active===false)?'red':'green'}>{(u.active===false)?'Inativo':'Ativo'}</Badge></Td>

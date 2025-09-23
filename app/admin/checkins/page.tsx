@@ -59,17 +59,19 @@ export default function CheckInsPage() {
 
 	const [isMobile] = useMediaQuery('(max-width: 780px)');
 
-  async function loadData() {
+  async function loadData(overrides?: { start?: string; end?: string; studentText?: string }) {
     setLoading(true);
     try {
       const base = collection(db, 'checkins');
       const clauses: any[] = [];
-      if (filterStart) {
-        const d = new Date(filterStart + 'T00:00:00');
+      const s = overrides?.start ?? filterStart;
+      const e = overrides?.end ?? filterEnd;
+      if (s) {
+        const d = new Date(s + 'T00:00:00');
         clauses.push(where('createdAt','>=', Timestamp.fromDate(d)));
       }
-      if (filterEnd) {
-        const d = new Date(filterEnd + 'T23:59:59');
+      if (e) {
+        const d = new Date(e + 'T23:59:59');
         clauses.push(where('createdAt','<=', Timestamp.fromDate(d)));
       }
       const qRef = clauses.length
@@ -90,7 +92,7 @@ export default function CheckInsPage() {
         })
       );
 
-      const text = filterStudentText.trim();
+      const text = (overrides?.studentText ?? filterStudentText).trim();
       const filteredByName = text ? checkInsData.filter(c => normalizeText(c.studentName||'').includes(normalizeText(text))) : checkInsData;
       setCheckIns(filteredByName);
     } catch (error) {
@@ -192,14 +194,14 @@ export default function CheckInsPage() {
               {isMobile ? <Icon name="plus" size={16} /> : 'Adicionar'}
             </Button>
             {!isMobile && (
-              <Button onClick={exportCurrentMonth} variant="outline" size="sm">
-                Exportar CSV (Mês Atual)
+              <Button onClick={exportCurrentMonth} variant="outline" leftIcon={<Icon name="download" size={16} />}>
+                Exportar CSV
               </Button>
             )}
           </HStack>
         </HStack>
 
-        <HStack justify="space-between" mb={1}><Text fontWeight={700}>Filtros</Text></HStack>
+        <Text fontWeight={700} mb={4}>Filtros</Text>
         {isMobile ? (
           <VStack spacing={4} align="stretch">
             <FormControl>
@@ -224,39 +226,55 @@ export default function CheckInsPage() {
               </Select>
             </FormControl>
             <HStack spacing={2} justify="flex-end">
-              <Button leftIcon={<Icon name='search' size={16} />} onClick={loadData} isLoading={loading}>Buscar</Button>
-              <Button variant="outline" onClick={()=>{ const last7 = computeLastNDays(7); setFilterStudentText(''); setFilterStart(last7.start); setFilterEnd(last7.end); setPreset('7'); loadData(); }}>Limpar</Button>
+              <Button leftIcon={<Icon name='search' size={16} />} onClick={()=>loadData()} isLoading={loading}>Buscar</Button>
+              <Button variant="outline" onClick={()=>{ setFilterStudentText(''); setFilterStart(''); setFilterEnd(''); setPreset(''); loadData({ start: '', end: '', studentText: '' }); }}>Limpar</Button>
             </HStack>
+            <Box borderLeft="4px solid" borderColor="gray.400" pl={3} py={1}>
+              <Text fontSize="lg" color="black">
+                Exibindo <Text as="span" fontWeight="bold">{checkIns.length}</Text> check-ins
+              </Text>
+            </Box>
           </VStack>
         ) : (
-          <HStack spacing={3} alignItems="flex-end">
-            <FormControl maxW="280px">
-              <FormLabel>Aluno</FormLabel>
-              <Input placeholder="Nome do aluno" value={filterStudentText} onChange={(e)=>setFilterStudentText(e.target.value)} />
-            </FormControl>
-            <FormControl>
-              <FormLabel>Data início</FormLabel>
-              <Input type="date" value={filterStart} onChange={(e)=>setFilterStart(e.target.value)} />
-            </FormControl>
-            <FormControl>
-              <FormLabel>Data fim</FormLabel>
-              <Input type="date" value={filterEnd} onChange={(e)=>setFilterEnd(e.target.value)} />
-            </FormControl>
-            <FormControl maxW="220px">
-              <FormLabel>Período</FormLabel>
-              <Select placeholder="Customizado" value={preset} onChange={(e)=>{ const v=e.target.value; setPreset(v); if (v) applyPresetDays(parseInt(v)); }}>
-                <option value="7">Últimos 7 dias</option>
-                <option value="15">Últimos 15 dias</option>
-                <option value="30">Últimos 30 dias</option>
-                <option value="90">Últimos 90 dias</option>
-              </Select>
-            </FormControl>
-            <HStack>
-              <Button leftIcon={<Icon name='search' size={16} />} onClick={loadData} isLoading={loading}>Buscar</Button>
-              <Button variant="outline" onClick={()=>{ const last7 = computeLastNDays(7); setFilterStudentText(''); setFilterStart(last7.start); setFilterEnd(last7.end); setPreset('7'); loadData(); }}>Limpar</Button>
+          <VStack spacing={4} align="stretch">
+            <HStack spacing={3} alignItems="flex-end">
+              <FormControl maxW="280px">
+                <FormLabel>Aluno</FormLabel>
+                <Input placeholder="Nome do aluno" value={filterStudentText} onChange={(e)=>setFilterStudentText(e.target.value)} />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Data início</FormLabel>
+                <Input type="date" value={filterStart} onChange={(e)=>setFilterStart(e.target.value)} />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Data fim</FormLabel>
+                <Input type="date" value={filterEnd} onChange={(e)=>setFilterEnd(e.target.value)} />
+              </FormControl>
+              <FormControl maxW="220px">
+                <FormLabel>Período</FormLabel>
+                <Select placeholder="Customizado" value={preset} onChange={(e)=>{ const v=e.target.value; setPreset(v); if (v) applyPresetDays(parseInt(v)); }}>
+                  <option value="7">Últimos 7 dias</option>
+                  <option value="15">Últimos 15 dias</option>
+                  <option value="30">Últimos 30 dias</option>
+                  <option value="90">Últimos 90 dias</option>
+                </Select>
+              </FormControl>
+              <HStack>
+                <Button leftIcon={<Icon name='search' size={16} />} onClick={()=>loadData()} isLoading={loading}>Buscar</Button>
+                <Button variant="outline" onClick={()=>{ setFilterStudentText(''); setFilterStart(''); setFilterEnd(''); setPreset(''); loadData({ start: '', end: '', studentText: '' }); }}>Limpar</Button>
+              </HStack>
             </HStack>
-          </HStack>
+            <Box borderLeft="4px solid" borderColor="gray.400" pl={3} py={1}>
+              <Text fontSize="md" color="black">
+                Exibindo <Text as="span" fontWeight="bold">{checkIns.length}</Text> check-ins
+              </Text>
+            </Box>
+          </VStack>
         )}
+
+
+
+
 
         {loading ? (
           <Text>Carregando...</Text>

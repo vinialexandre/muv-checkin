@@ -123,7 +123,7 @@ export default function PlansPage() {
             </VStack>
           ) : (
             <Table size="md" mt={5}>
-              <Thead><Tr><Th>Nome</Th><Th>Preço</Th><Th>Período</Th><Th>Status</Th><Th textAlign="right">Ações</Th></Tr></Thead>
+              <Thead><Tr><Th>Nome</Th><Th>Preço</Th><Th>Período</Th><Th>Status</Th><Th textAlign="right" pr={24}>Ações</Th></Tr></Thead>
               <Tbody>
                 {filtered.map(p => (
                   <Tr key={p.id}>

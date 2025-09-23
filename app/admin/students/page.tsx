@@ -149,11 +149,11 @@ export default function StudentsPage() {
             </VStack>
           ) : (
             <Table size="md" mt={5}>
-              <Thead><Tr><Th>Nome</Th><Th>Plano</Th><Th>Status</Th><Th textAlign="right">Ações</Th></Tr></Thead>
+              <Thead><Tr><Th>Nome</Th><Th>Plano</Th><Th>Status</Th><Th textAlign="right" pr={24}>Ações</Th></Tr></Thead>
               <Tbody>
                 {filtered.map(s => (
                   <Tr key={s.id}>
-                    <Td>{s.name}</Td>
+                    <Td fontWeight="medium">{s.name}</Td>
                     <Td>{plans.find(p => p.id === s.activePlanId)?.name || '-'}</Td>
                     <Td>{s.active ? <Badge colorScheme='green'>Ativo</Badge> : <Badge colorScheme='red'>Inativo</Badge>}</Td>
                     <Td textAlign="right">
