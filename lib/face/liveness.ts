@@ -12,8 +12,10 @@ export type LivenessState = {
 // Mantemos blink/turn apenas como informação auxiliar.
 export async function simpleLiveness(video: HTMLVideoElement): Promise<LivenessState> {
   const fa = await getFaceApi();
+  const liveInputSize = Number((process.env.NEXT_PUBLIC_LIVE_INPUT_SIZE as any) || (process.env.NEXT_PUBLIC_FACE_INPUT_SIZE as any) || (process.env.NODE_ENV === 'development' ? 224 : 192));
+  const liveScoreThreshold = Number((process.env.NEXT_PUBLIC_LIVE_DET_THRESHOLD as any) || (process.env.NODE_ENV === 'development' ? 0.25 : 0.3));
   const lm = await fa
-    .detectSingleFace(video, new fa.TinyFaceDetectorOptions({ inputSize: 192, scoreThreshold: 0.3 }))
+    .detectSingleFace(video, new fa.TinyFaceDetectorOptions({ inputSize: liveInputSize, scoreThreshold: liveScoreThreshold }))
     .withFaceLandmarks();
   if (!lm) return { ok: false, blinked: false, turned: false };
   const pts: any[] = lm.landmarks.getLeftEye().concat(lm.landmarks.getRightEye());

@@ -7,7 +7,8 @@ if (typeof window !== 'undefined' && !(window as any).__tfWarnPatched) {
     if (
       s.includes('backend was already registered') ||
       (s.includes('kernel') && s.includes('already registered')) ||
-      s.includes('Platform browser has already been set')
+      s.includes('Platform browser has already been set') ||
+      s.includes('Critical dependency: require function')
     ) {
       return;
     }

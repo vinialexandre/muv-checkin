@@ -5,7 +5,7 @@ import VideoCanvas from '@/components/VideoCanvas';
 import { useFaceModels } from '@/lib/face/useFaceModels';
 import { getEmbeddingFor, match1vN } from '@/lib/face/match1vN';
 import { createCheckIn } from '@/lib/firestore';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { simpleLiveness } from '@/lib/face/liveness';
 import '@/lib/dev/muteWarnings';
@@ -19,6 +19,9 @@ export default function KioskPage() {
   const [authed, setAuthed] = useState(false);
   const [cameraError, setCameraError] = useState<string|undefined>();
   const [hud, setHud] = useState<{ text: string; tone: 'ok'|'dup'|'fail'|'error' }|undefined>();
+  const [cameraReady, setCameraReady] = useState(false);
+  const [readyToCapture, setReadyToCapture] = useState(false);
+
   const cooldownRef = useRef<Map<string, number>>(new Map());
   const checkedInHojeRef = useRef<Map<string, string>>(new Map());
   const dayRef = useRef<string>(new Date().toISOString().slice(0,10));
@@ -32,6 +35,9 @@ export default function KioskPage() {
   const prevLivenessOkRef = useRef<boolean>(false);
   const lastEmbeddingTsRef = useRef<number>(0);
   const pausedUntilRef = useRef<number>(0);
+  const readyRef = useRef<boolean>(false);
+  const readyToCaptureRef = useRef<boolean>(false);
+  const studentsRef = useRef<any[]>([]);
   const toast = useToast();
   useEffect(() => {
     const { onAuthStateChanged } = require('firebase/auth');
@@ -46,9 +52,22 @@ export default function KioskPage() {
   }, []);
   useEffect(() => {
     if (!authed) return;
-    getDocs(collection(db,'students'))
-      .then(s => { const arr = s.docs.map(d=>({ id:d.id, ...(d.data() as any) })); setStudents(arr); log('students','loaded',{ count: arr.length }); })
-      .catch(e => { log('students','error', String(e?.message||e)); setStudents([]); toast({ status:'error', title:'Erro ao carregar alunos', description:'Permissão insuficiente ou falha de rede.' }); });
+    const unsub = onSnapshot(
+      collection(db,'students'),
+      (s) => {
+        const arr = s.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+        setStudents(arr);
+        log('students','loaded',{ count: arr.length });
+        const candidates = arr.filter((s:any)=> (s.active ?? true) && (s.centroid || (s.descriptors && s.descriptors.length))).length;
+        log('face-index','candidates',{ count: candidates });
+      },
+      (e:any) => {
+        log('students','error', String(e?.message||e));
+        setStudents([]);
+        toast({ status:'error', title:'Erro ao carregar alunos', description:'Permissão insuficiente ou falha de rede.' });
+      }
+    );
+    return () => unsub();
   }, [authed]);
 
   useEffect(() => {
@@ -56,6 +75,9 @@ export default function KioskPage() {
     if (faceError) log('face-models','error', faceError);
     if (ready) log('face-models','ready');
   }, [ready, faceError, faceLoading]);
+  useEffect(() => { readyRef.current = ready; }, [ready]);
+  useEffect(() => { readyToCaptureRef.current = readyToCapture; }, [readyToCapture]);
+  useEffect(() => { studentsRef.current = students; }, [students]);
 
   function beepOk() {
     try {
@@ -69,11 +91,23 @@ export default function KioskPage() {
   }
 
   useEffect(() => {
+    const candidates = (students||[]).filter((s:any)=> (s.active ?? true) && (s.centroid || (s.descriptors && s.descriptors.length))).length;
+    const nowReady = !!ready && !!authed && !!cameraReady && candidates > 0;
+    if (nowReady && !readyToCapture) {
+      setReadyToCapture(true);
+      setHud({ text:'Pronto para coletar biometria', tone:'ok' });
+      window.setTimeout(()=>{ setHud(undefined); }, 2000);
+      log('ready-to-capture','yes',{ candidates });
+    }
+  }, [ready, authed, cameraReady, students]);
+
+  useEffect(() => {
     return () => { if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = undefined; } };
   }, []);
 
   async function processTick(video: HTMLVideoElement) {
-    if (!ready) return;
+    if (!readyToCaptureRef.current) return;
+    if (!readyRef.current) return;
     if (Date.now() < (pausedUntilRef.current || 0)) return;
 
     // Liveness e overlay
@@ -99,9 +133,19 @@ export default function KioskPage() {
             if (canvas.height !== ch) canvas.height = ch;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             if (lv.box) {
-              const sx = (video.clientWidth || canvas.width) / (video.videoWidth || canvas.width);
-              const sy = (video.clientHeight || canvas.height) / (video.videoHeight || canvas.height);
-              const x = lv.box.x * sx, y = lv.box.y * sy, w = lv.box.width * sx, h = lv.box.height * sy;
+              const vw = video.videoWidth || canvas.width;
+              const vh = video.videoHeight || canvas.height;
+              const cw = canvas.width;
+              const ch = canvas.height;
+              const scale = Math.max(cw / vw, ch / vh);
+              const drawW = vw * scale;
+              const drawH = vh * scale;
+              const dx = (cw - drawW) / 2;
+              const dy = (ch - drawH) / 2;
+              const x = dx + lv.box.x * scale;
+              const y = dy + lv.box.y * scale;
+              const w = lv.box.width * scale;
+              const h = lv.box.height * scale;
               ctx.strokeStyle = isLive ? 'rgba(80,200,120,0.95)' : 'rgba(255,244,0,0.95)';
               ctx.lineWidth = 3;
               ctx.strokeRect(x, y, w, h);
@@ -109,18 +153,24 @@ export default function KioskPage() {
           }
         }
       }
-    } catch {}
+    } catch (e: any) { log('liveness','error', { name: e?.name, message: e?.message }); }
 
     let today = new Date().toISOString().slice(0,10);
     if (dayRef.current !== today) { dayRef.current = today; checkedInHojeRef.current.clear(); }
 
-    // Estabilizar liveness por alguns ciclos
     if (isLive) livenessOkCountRef.current = Math.min(livenessOkCountRef.current + 1, 10);
     else livenessOkCountRef.current = 0;
-    if (livenessOkCountRef.current < 3) return;
-
-    // Throttle de embedding
+    if (livenessOkCountRef.current === 3) log('liveness','stabilized');
+    let allowEmbedding = livenessOkCountRef.current >= 3;
     const nowTs = Date.now();
+    if (!allowEmbedding) {
+      if (nowTs - (lastEmbeddingTsRef.current || 0) >= 4000) {
+        allowEmbedding = true;
+        log('liveness','forcing-embedding');
+      } else {
+        return;
+      }
+    }
     if (nowTs - (lastEmbeddingTsRef.current || 0) < 900) return;
     lastEmbeddingTsRef.current = nowTs;
 
@@ -139,15 +189,18 @@ export default function KioskPage() {
 
     const emb = await getEmbeddingFor(worker);
     if (!emb) { log('embedding', 'none'); setHud({ text:'Não reconhecido', tone:'fail' }); return; }
+    log('embedding', 'ok');
 
     // Índice de faces
-    const faceIndex = (students||[])
+    const sds = studentsRef.current || [];
+    const faceIndex = sds
       .filter((s:any)=> (s.active ?? true) && (s.centroid || (s.descriptors && s.descriptors.length)))
       .map((s:any)=> ({ id: s.id, name: s.name, centroid: s.centroid, descriptors: (s.descriptors||[]).map((d:any)=> Array.isArray(d) ? d : d?.v).filter(Boolean) }));
-    if (!faceIndex.length) { log('face-index', 'empty'); setHud({ text:'Nenhum aluno com biometria cadastrada', tone:'error' }); return; }
+    if (!faceIndex.length) { log('face-index', 'empty'); if (readyToCaptureRef.current) setHud({ text:'Nenhum aluno com biometria cadastrada', tone:'error' }); return; }
 
     const match = match1vN(emb, faceIndex as any);
     if (!('matched' in match) || !match.matched) {
+      log('match', 'no-match', { bestDistance: (match as any).bestDistance, bestId: (match as any).bestId, bestName: (match as any).bestName });
       setHud({ text:'Não reconhecido', tone:'fail' });
       return;
     }
@@ -181,6 +234,9 @@ export default function KioskPage() {
   }
 
 
+  const candidatesCount = (students||[]).filter((s:any)=> (s.active ?? true) && (s.centroid || (s.descriptors && s.descriptors.length))).length;
+  const initMessage = !authed ? 'Autenticando...' : (!ready ? 'Carregando modelos de face...' : (!cameraReady ? 'Preparando câmera...' : (!students.length ? 'Carregando alunos...' : (candidatesCount===0 ? 'Aguardando alunos com biometria...' : ''))));
+
   return (
     <Box position="fixed" inset={0} bg="black">
       {faceError && (
@@ -209,16 +265,27 @@ export default function KioskPage() {
             px={3}
           >
             <Text color="white" fontWeight={700}>{hud.text}</Text>
+
           </Alert>
         </Box>
       )}
 
-      <Box position="absolute" inset={0}>
+
+      {!readyToCapture && (
+        <Box position="absolute" top="50%" left="50%" transform="translate(-50%, -50%)" color="whiteAlpha.900" zIndex={2} textAlign="center" pointerEvents="none">
+          <Text fontWeight={700}>Inicializando o Kiosk...</Text>
+          <Text fontSize="sm" opacity={0.9}>{initMessage}</Text>
+        </Box>
+      )}
+
+      <Box position="absolute" inset={0} opacity={readyToCapture ? 1 : 0} pointerEvents={readyToCapture ? 'auto' : 'none'}>
         <VideoCanvas full onReady={(v)=>{
           setCameraError(undefined);
+          setCameraReady(true);
           log('camera','ready');
           videoRef.current = v;
           if (!workerCanvasRef.current) workerCanvasRef.current = document.createElement('canvas');
+
           if (intervalRef.current) clearInterval(intervalRef.current);
           log('loop','start');
           intervalRef.current = window.setInterval(async () => {
