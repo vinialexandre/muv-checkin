@@ -2,7 +2,7 @@
 import PageCard from '@/components/PageCard';
 import { db } from '@/lib/firebase';
 import { Student } from '@/lib/firestore';
-import { AlertDialog, AlertDialogBody, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogOverlay, Badge, Button, Center, HStack, Input, Select, Spinner, Table, Tbody, Td, Text, Th, Thead, Tr, VStack, useToast, Box, useMediaQuery } from '@chakra-ui/react';
+import { AlertDialog, AlertDialogBody, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogOverlay, Badge, Button, Center, HStack, Input, Select, Spinner, Table, Tbody, Td, Text, Th, Thead, Tr, VStack, useToast, Box, useMediaQuery, IconButton, Heading } from '@chakra-ui/react';
 import { Icon } from '@/components/Icon';
 
 import { collection, deleteDoc, doc, getDocs, onSnapshot, orderBy, query } from 'firebase/firestore';
@@ -32,6 +32,10 @@ export default function StudentsPage() {
   const [draftName, setDraftName] = useState('');
   const [draftPlanId, setDraftPlanId] = useState<string>('');
   const [draftStatus, setDraftStatus] = useState<typeof filterAll | 'active' | 'inactive'>(filterAll);
+
+  // scroll infinito
+  const [displayCount, setDisplayCount] = useState(10);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
     const q = query(collection(db, 'students'), orderBy('name'));
@@ -64,6 +68,30 @@ export default function StudentsPage() {
     );
   }, [students, filterName, filterPlanId, filterStatus]);
 
+  const displayedStudents = useMemo(() => {
+    return filtered.slice(0, displayCount);
+  }, [filtered, displayCount]);
+
+  const hasMore = displayCount < filtered.length;
+
+  useEffect(() => {
+    setDisplayCount(10);
+  }, [filterName, filterPlanId, filterStatus]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 1000 && hasMore && !loadingMore) {
+        setLoadingMore(true);
+        setTimeout(() => {
+          setDisplayCount(prev => prev + 10);
+          setLoadingMore(false);
+        }, 500);
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [hasMore, loadingMore]);
+
   async function removeNow() {
     if (!deleteId) return;
     await deleteDoc(doc(db, 'students', deleteId));
@@ -85,7 +113,7 @@ export default function StudentsPage() {
         <HStack justify="space-between" mb={4}>
           <HStack>
             <Icon name='users' />
-            <Text fontSize="xl" fontWeight={700}>Alunos</Text>
+            <Heading size="md">Alunos</Heading>
           </HStack>
           <Button variant="secondary" leftIcon={isMobile ? undefined : <Icon name='plus' size={16} />} onClick={openCreate}>{isMobile ? <Icon name='plus' size={16} /> : 'Adicionar'}</Button>
         </HStack>
@@ -129,44 +157,50 @@ export default function StudentsPage() {
         ) : filtered.length === 0 ? (
           <Center py={6}><Text color="gray.500">Nenhum resultado encontrado</Text></Center>
         ) : (
-          isMobile ? (
-            <VStack spacing={3} mt={5} align="stretch">
-              {filtered.map(s => (
-                <Box key={s.id} borderWidth="1px" borderRadius="md" p={4}>
-                  <HStack justify="space-between" align="start">
-                    <VStack align="start" spacing={1}>
-                      <Text fontWeight={700}>{s.name}</Text>
-                      <Text fontSize="sm" color="gray.600">Plano: {plans.find(p => p.id === s.activePlanId)?.name || '-'}</Text>
-                      <Badge colorScheme={s.active ? 'green' : 'red'}>{s.active ? 'Ativo' : 'Inativo'}</Badge>
-                    </VStack>
-                    <HStack spacing={2}>
-                      <Button size="sm" onClick={()=>openEdit(s.id)}><Icon name='edit' size={16} /></Button>
-                      <Button size="sm" variant="outline" colorScheme='red' onClick={()=>setDeleteId(s.id)}><Icon name='trash' size={16} /></Button>
-                    </HStack>
-                  </HStack>
-                </Box>
-              ))}
-            </VStack>
-          ) : (
-            <Table size="md" mt={5}>
-              <Thead><Tr><Th>Nome</Th><Th>Plano</Th><Th>Status</Th><Th textAlign="right" pr={24}>Ações</Th></Tr></Thead>
-              <Tbody>
-                {filtered.map(s => (
-                  <Tr key={s.id}>
-                    <Td fontWeight="medium">{s.name}</Td>
-                    <Td>{plans.find(p => p.id === s.activePlanId)?.name || '-'}</Td>
-                    <Td>{s.active ? <Badge colorScheme='green'>Ativo</Badge> : <Badge colorScheme='red'>Inativo</Badge>}</Td>
-                    <Td textAlign="right">
-                      <HStack justify="flex-end" spacing={2}>
-                        <Button size="sm" leftIcon={<Icon name='edit' size={16} />} onClick={()=>openEdit(s.id)}>Editar</Button>
-                        <Button size="sm" variant="outline" leftIcon={<Icon name='trash' size={16} />} colorScheme='red' onClick={()=>setDeleteId(s.id)}>Excluir</Button>
+          <>
+            {isMobile ? (
+              <VStack spacing={3} mt={5} align="stretch">
+                {displayedStudents.map(s => (
+                  <Box key={s.id} borderWidth="1px" borderRadius="md" p={4}>
+                    <HStack justify="space-between" align="start">
+                      <VStack align="start" spacing={1}>
+                        <Text fontWeight={700}>{s.name}</Text>
+                        <Text fontSize="sm" color="gray.600">Plano: {plans.find(p => p.id === s.activePlanId)?.name || '-'}</Text>
+                        <Badge colorScheme={s.active ? 'green' : 'red'}>{s.active ? 'Ativo' : 'Inativo'}</Badge>
+                      </VStack>
+                      <HStack spacing={2}>
+                        <Button size="sm" onClick={()=>openEdit(s.id)}><Icon name='edit' size={16} /></Button>
+                        <Button size="sm" variant="outline" colorScheme='red' onClick={()=>setDeleteId(s.id)}><Icon name='trash' size={16} /></Button>
                       </HStack>
-                    </Td>
-                  </Tr>
+                    </HStack>
+                  </Box>
                 ))}
-              </Tbody>
-            </Table>
-          )
+                {loadingMore && <Center py={4}><Spinner size="sm" /></Center>}
+              </VStack>
+            ) : (
+              <>
+                <Table size="md" mt={5}>
+                  <Thead><Tr><Th>Nome</Th><Th>Plano</Th><Th>Status</Th><Th textAlign="right" pr={24}>Ações</Th></Tr></Thead>
+                  <Tbody>
+                    {displayedStudents.map(s => (
+                      <Tr key={s.id}>
+                        <Td fontWeight="medium">{s.name}</Td>
+                        <Td>{plans.find(p => p.id === s.activePlanId)?.name || '-'}</Td>
+                        <Td>{s.active ? <Badge colorScheme='green'>Ativo</Badge> : <Badge colorScheme='red'>Inativo</Badge>}</Td>
+                        <Td textAlign="right">
+                          <HStack justify="flex-end" spacing={2}>
+                            <Button size="sm" leftIcon={<Icon name='edit' size={16} />} onClick={()=>openEdit(s.id)}>Editar</Button>
+                            <Button size="sm" variant="outline" leftIcon={<Icon name='trash' size={16} />} colorScheme='red' onClick={()=>setDeleteId(s.id)}>Excluir</Button>
+                          </HStack>
+                        </Td>
+                      </Tr>
+                    ))}
+                  </Tbody>
+                </Table>
+                {loadingMore && <Center py={4}><Spinner size="sm" /></Center>}
+              </>
+            )}
+          </>
         )}
 
         <AlertDialog isOpen={!!deleteId} leastDestructiveRef={cancelRef} onClose={()=>setDeleteId(undefined)}>

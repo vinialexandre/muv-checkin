@@ -105,7 +105,7 @@ export default function LoginPage() {
             </InputGroup>
           </FormControl>
           <Button variant="link" size="sm" onClick={forgot} mb={2} type="button" isDisabled={loading}>Esqueceu a senha?</Button>
-          <Button type="submit" w="full" isLoading={loading} isDisabled={loading}>Entrar</Button>
+          <Button type="submit" w="full" isLoading={loading} isDisabled={loading} bg={loading ? "black" : undefined} _hover={loading ? { bg: "black" } : undefined} color={loading ? "white" : undefined}>Entrar</Button>
         </CardBody>
       </Card>
     </Stack>

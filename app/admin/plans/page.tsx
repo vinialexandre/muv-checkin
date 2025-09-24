@@ -1,6 +1,6 @@
 "use client";
 import { db } from '@/lib/firebase';
-import { AlertDialog, AlertDialogBody, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogOverlay, Badge, Button, Center, HStack, Input, Spinner, Table, Tbody, Td, Text, Th, Thead, Tr, VStack, useToast, Box, useMediaQuery } from '@chakra-ui/react';
+import { AlertDialog, AlertDialogBody, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogOverlay, Badge, Button, Center, HStack, Input, Spinner, Table, Tbody, Td, Text, Th, Thead, Tr, VStack, useToast, Box, useMediaQuery, Heading } from '@chakra-ui/react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { collection, deleteDoc, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
@@ -32,6 +32,9 @@ export default function PlansPage() {
   const [navigating, setNavigating] = useState(false);
   const cancelRef = useRef<HTMLButtonElement>(null);
 
+  const [displayCount, setDisplayCount] = useState(10);
+  const [loadingMore, setLoadingMore] = useState(false);
+
   useEffect(() => {
     const q = query(collection(db, 'plans'), orderBy('name'));
     const unsub = onSnapshot(
@@ -56,6 +59,30 @@ export default function PlansPage() {
 
   const filtered = useMemo(() => plans.filter(p => !filterName || p.name.toLowerCase().includes(filterName.toLowerCase())), [plans, filterName]);
 
+  const displayedPlans = useMemo(() => {
+    return filtered.slice(0, displayCount);
+  }, [filtered, displayCount]);
+
+  const hasMore = displayCount < filtered.length;
+
+  useEffect(() => {
+    setDisplayCount(10);
+  }, [filterName]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 1000 && hasMore && !loadingMore) {
+        setLoadingMore(true);
+        setTimeout(() => {
+          setDisplayCount(prev => prev + 10);
+          setLoadingMore(false);
+        }, 500);
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [hasMore, loadingMore]);
+
   async function removeNow() {
     if (!deleteId) return;
     await deleteDoc(doc(db, 'plans', deleteId));
@@ -74,7 +101,7 @@ export default function PlansPage() {
         <HStack justify="space-between" mb={4}>
           <HStack>
             <Icon name='folder' />
-            <Text fontSize="xl" fontWeight={700}>Planos</Text>
+            <Heading size="md">Planos</Heading>
           </HStack>
           <Button variant="secondary" leftIcon={isMobile ? undefined : <Icon name='plus' size={16} />} onClick={() => { setNavigating(true); router.push('/admin/plans/new'); }}>{isMobile ? <Icon name='plus' size={16} /> : 'Adicionar'}</Button>
         </HStack>
@@ -104,7 +131,7 @@ export default function PlansPage() {
         ) : (
           isMobile ? (
             <VStack spacing={3} mt={5} align="stretch">
-              {filtered.map(p => (
+              {displayedPlans.map(p => (
                 <Box key={p.id} borderWidth="1px" borderRadius="md" p={4}>
                   <HStack justify="space-between" align="start">
                     <VStack align="start" spacing={1}>
@@ -120,27 +147,31 @@ export default function PlansPage() {
                   </HStack>
                 </Box>
               ))}
+              {loadingMore && <Center py={4}><Spinner size="sm" /></Center>}
             </VStack>
           ) : (
-            <Table size="md" mt={5}>
-              <Thead><Tr><Th>Nome</Th><Th>Preço</Th><Th>Período</Th><Th>Status</Th><Th textAlign="right" pr={24}>Ações</Th></Tr></Thead>
-              <Tbody>
-                {filtered.map(p => (
-                  <Tr key={p.id}>
-                    <Td>{p.name}</Td>
-                    <Td>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.price || 0)}</Td>
-                    <Td>{labelPeriod(p.period as any)}</Td>
-                    <Td><Badge colorScheme={(p.active===false)?'red':'green'}>{(p.active===false)?'Inativo':'Ativo'}</Badge></Td>
-                    <Td textAlign="right">
-                      <HStack justify="flex-end" spacing={2}>
-                        <Button size="sm" leftIcon={<Icon name='edit' size={16} />} as={Link} href={`/admin/plans/${p.id}/edit` as any}>Editar</Button>
-                        <Button size="sm" variant="outline" leftIcon={<Icon name='trash' size={16} />} colorScheme='red' onClick={() => setDeleteId(p.id)}>Excluir</Button>
-                      </HStack>
-                    </Td>
-                  </Tr>
-                ))}
-              </Tbody>
-            </Table>
+            <>
+              <Table size="md" mt={5}>
+                <Thead><Tr><Th>Nome</Th><Th>Preço</Th><Th>Período</Th><Th>Status</Th><Th textAlign="right" pr={24}>Ações</Th></Tr></Thead>
+                <Tbody>
+                  {displayedPlans.map(p => (
+                    <Tr key={p.id}>
+                      <Td>{p.name}</Td>
+                      <Td>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.price || 0)}</Td>
+                      <Td>{labelPeriod(p.period as any)}</Td>
+                      <Td><Badge colorScheme={(p.active===false)?'red':'green'}>{(p.active===false)?'Inativo':'Ativo'}</Badge></Td>
+                      <Td textAlign="right">
+                        <HStack justify="flex-end" spacing={2}>
+                          <Button size="sm" leftIcon={<Icon name='edit' size={16} />} as={Link} href={`/admin/plans/${p.id}/edit` as any}>Editar</Button>
+                          <Button size="sm" variant="outline" leftIcon={<Icon name='trash' size={16} />} colorScheme='red' onClick={() => setDeleteId(p.id)}>Excluir</Button>
+                        </HStack>
+                      </Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+              {loadingMore && <Center py={4}><Spinner size="sm" /></Center>}
+            </>
           )
         )}
 

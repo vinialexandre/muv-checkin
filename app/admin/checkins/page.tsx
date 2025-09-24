@@ -10,6 +10,8 @@ import { normalizeText } from '@/lib/utils';
 
 type CheckInWithStudent = CheckIn & {
   studentName?: string;
+  planName?: string;
+  planId?: string;
 };
 
 function computeLastNDays(days: number) {
@@ -24,6 +26,7 @@ function computeLastNDays(days: number) {
 export default function CheckInsPage() {
   const [checkIns, setCheckIns] = useState<CheckInWithStudent[]>([]);
   const [students, setStudents] = useState<any[]>([]);
+  const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const toast = useToast();
 
@@ -39,6 +42,8 @@ export default function CheckInsPage() {
   const [filterStart, setFilterStart] = useState<string>(initial7.start);
   const [filterEnd, setFilterEnd] = useState<string>(initial7.end);
   const [preset, setPreset] = useState<string>('7');
+  const [filterPlanId, setFilterPlanId] = useState<string>('');
+
 
   useEffect(() => {
     loadData();
@@ -47,11 +52,16 @@ export default function CheckInsPage() {
   useEffect(() => {
     (async () => {
       try {
-        const snaps = await getDocs(query(collection(db, 'students'), orderBy('name')));
-        const arr = snaps.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
-        setStudents(arr.filter(s => (s.active ?? true)));
+        const [studentsSnap, plansSnap] = await Promise.all([
+          getDocs(query(collection(db, 'students'), orderBy('name'))),
+          getDocs(query(collection(db, 'plans'), orderBy('name')))
+        ]);
+        const studentsArr = studentsSnap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+        const plansArr = plansSnap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+        setStudents(studentsArr.filter(s => (s.active ?? true)));
+        setPlans(plansArr);
       } catch (e) {
-        toast({ title: 'Erro ao carregar alunos', status: 'error' });
+        toast({ title: 'Erro ao carregar dados', status: 'error' });
       }
     })();
   }, []);
@@ -62,6 +72,13 @@ export default function CheckInsPage() {
   async function loadData(overrides?: { start?: string; end?: string; studentText?: string }) {
     setLoading(true);
     try {
+      // Garantir que os planos estejam carregados
+      let currentPlans = plans;
+      if (plans.length === 0) {
+        const plansSnap = await getDocs(query(collection(db, 'plans'), orderBy('name')));
+        currentPlans = plansSnap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+        setPlans(currentPlans);
+      }
       const base = collection(db, 'checkins');
       const clauses: any[] = [];
       const s = overrides?.start ?? filterStart;
@@ -80,21 +97,40 @@ export default function CheckInsPage() {
 
       const checkInsSnap = await getDocs(qRef);
       const checkInsRaw = checkInsSnap.docs.map(d => d.data() as CheckIn);
+      const studentMap = students.length ? new Map(students.map((s: any) => [s.id, s])) : undefined;
       const checkInsData = await Promise.all(
         checkInsRaw.map(async (c) => {
           try {
-            const sSnap = await getDoc(doc(db, 'students', c.studentId));
-            const sData = sSnap.exists() ? (sSnap.data() as any) : null;
-            return { ...c, studentName: sData?.name || 'Aluno não encontrado' } as CheckInWithStudent;
+            let sData: any = undefined;
+            if (studentMap) {
+              sData = studentMap.get(c.studentId);
+            } else {
+              const sSnap = await getDoc(doc(db, 'students', c.studentId));
+              sData = sSnap.exists() ? (sSnap.data() as any) : null;
+            }
+            let planName = 'Sem plano';
+            let planId: string | undefined = undefined;
+            if (sData?.activePlanId && currentPlans.length > 0) {
+              const plan = currentPlans.find(p => p.id === sData.activePlanId);
+              planName = plan?.name || `ID: ${sData.activePlanId}`;
+              planId = sData.activePlanId;
+            }
+            return { ...c, studentName: sData?.name || 'Aluno não encontrado', planName, planId } as CheckInWithStudent;
           } catch {
-            return { ...c, studentName: 'Aluno não encontrado' } as CheckInWithStudent;
+            return { ...c, studentName: 'Aluno não encontrado', planName: 'Sem plano', planId: undefined } as CheckInWithStudent;
           }
         })
       );
 
       const text = (overrides?.studentText ?? filterStudentText).trim();
       const filteredByName = text ? checkInsData.filter(c => normalizeText(c.studentName||'').includes(normalizeText(text))) : checkInsData;
-      setCheckIns(filteredByName);
+      const selectedPlanId = filterPlanId;
+      const filtered = selectedPlanId ? filteredByName.filter(c => (c as CheckInWithStudent).planId === selectedPlanId) : filteredByName;
+      setCheckIns(filtered);
+
+      // Debug: log para verificar dados
+      console.log('Plans loaded:', currentPlans.length);
+      console.log('CheckIns with plans:', checkInsData.slice(0, 3).map(c => ({ student: c.studentName, plan: c.planName })));
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       toast({ title: 'Erro ao carregar dados', status: 'error' });
@@ -187,7 +223,7 @@ export default function CheckInsPage() {
         <HStack justify="space-between">
           <HStack>
             <Icon name="clock" />
-            <Heading size="lg">Histórico de Check-ins</Heading>
+            <Heading size="md">{isMobile ? 'Check-ins' : 'Histórico de Check-ins'}</Heading>
           </HStack>
           <HStack>
             <Button variant="secondary" leftIcon={isMobile ? undefined : <Icon name="plus" size={16} />} onClick={openManual}>
@@ -209,6 +245,12 @@ export default function CheckInsPage() {
               <Input placeholder="Nome do aluno" value={filterStudentText} onChange={(e)=>setFilterStudentText(e.target.value)} />
             </FormControl>
             <FormControl>
+              <FormLabel>Plano</FormLabel>
+              <Select placeholder="Todos os planos" value={filterPlanId} onChange={(e)=>setFilterPlanId(e.target.value)}>
+                {plans.map((p:any)=>(<option key={p.id} value={p.id}>{p.name}</option>))}
+              </Select>
+            </FormControl>
+            <FormControl>
               <FormLabel>Data início</FormLabel>
               <Input type="date" value={filterStart} onChange={(e)=>setFilterStart(e.target.value)} />
             </FormControl>
@@ -227,7 +269,7 @@ export default function CheckInsPage() {
             </FormControl>
             <HStack spacing={2} justify="flex-end">
               <Button leftIcon={<Icon name='search' size={16} />} onClick={()=>loadData()} isLoading={loading}>Buscar</Button>
-              <Button variant="outline" onClick={()=>{ setFilterStudentText(''); setFilterStart(''); setFilterEnd(''); setPreset(''); loadData({ start: '', end: '', studentText: '' }); }}>Limpar</Button>
+              <Button variant="outline" onClick={()=>{ setFilterStudentText(''); setFilterStart(''); setFilterEnd(''); setPreset(''); setFilterPlanId(''); loadData({ start: '', end: '', studentText: '' }); }}>Limpar</Button>
             </HStack>
             <Box borderLeft="4px solid" borderColor="gray.400" pl={3} py={1}>
               <Text fontSize="lg" color="black">
@@ -242,6 +284,13 @@ export default function CheckInsPage() {
                 <FormLabel>Aluno</FormLabel>
                 <Input placeholder="Nome do aluno" value={filterStudentText} onChange={(e)=>setFilterStudentText(e.target.value)} />
               </FormControl>
+              <FormControl maxW="240px">
+                <FormLabel>Plano</FormLabel>
+                <Select placeholder="Todos os planos" value={filterPlanId} onChange={(e)=>setFilterPlanId(e.target.value)}>
+                  {plans.map((p:any)=>(<option key={p.id} value={p.id}>{p.name}</option>))}
+                </Select>
+              </FormControl>
+
               <FormControl>
                 <FormLabel>Data início</FormLabel>
                 <Input type="date" value={filterStart} onChange={(e)=>setFilterStart(e.target.value)} />
@@ -261,7 +310,7 @@ export default function CheckInsPage() {
               </FormControl>
               <HStack>
                 <Button leftIcon={<Icon name='search' size={16} />} onClick={()=>loadData()} isLoading={loading}>Buscar</Button>
-                <Button variant="outline" onClick={()=>{ setFilterStudentText(''); setFilterStart(''); setFilterEnd(''); setPreset(''); loadData({ start: '', end: '', studentText: '' }); }}>Limpar</Button>
+                <Button variant="outline" onClick={()=>{ setFilterStudentText(''); setFilterStart(''); setFilterEnd(''); setPreset(''); setFilterPlanId(''); loadData({ start: '', end: '', studentText: '' }); }}>Limpar</Button>
               </HStack>
             </HStack>
             <Box borderLeft="4px solid" borderColor="gray.400" pl={3} py={1}>
@@ -288,6 +337,7 @@ export default function CheckInsPage() {
                     <Box key={checkIn.id} borderWidth="1px" borderRadius="md" p={4}>
                       <VStack align="start" spacing={1}>
                         <Text fontWeight="700">{checkIn.studentName}</Text>
+                        <HStack><Text fontSize="sm" color="gray.600">Plano:</Text><Text>{checkIn.planName}</Text></HStack>
                         <HStack><Text fontSize="sm" color="gray.600">Data:</Text><Text>{date}</Text></HStack>
                         <HStack><Text fontSize="sm" color="gray.600">Hora:</Text><Text>{time}</Text></HStack>
                         {getSourceBadge(checkIn.source)}
@@ -301,6 +351,7 @@ export default function CheckInsPage() {
                 <Thead>
                   <Tr>
                     <Th>Aluno</Th>
+                    <Th pl={2}>Plano</Th>
                     <Th>Data</Th>
                     <Th>Horário</Th>
                     <Th>Tipo</Th>
@@ -312,6 +363,7 @@ export default function CheckInsPage() {
                     return (
                       <Tr key={checkIn.id}>
                         <Td fontWeight="medium">{checkIn.studentName}</Td>
+                        <Td pl={2}>{checkIn.planName}</Td>
                         <Td>{date}</Td>
                         <Td>{time}</Td>
                         <Td>{getSourceBadge(checkIn.source)}</Td>

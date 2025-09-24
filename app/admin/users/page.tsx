@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertDialog, AlertDialogBody, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogOverlay, Badge, Box, Button, Center, HStack, Input, Select, Spinner, Table, Tbody, Td, Th, Thead, Tr, VStack, useToast, Text, useMediaQuery } from '@chakra-ui/react';
+import { AlertDialog, AlertDialogBody, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogOverlay, Badge, Box, Button, Center, HStack, Input, Select, Spinner, Table, Tbody, Td, Th, Thead, Tr, VStack, useToast, Text, useMediaQuery, Heading } from '@chakra-ui/react';
 import PageCard from '@/components/PageCard';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/Icon';
@@ -122,7 +122,7 @@ export default function UsersPage() {
         <HStack justify="space-between" mb={4}>
           <HStack>
             <Icon name='user' />
-            <Text fontSize="xl" fontWeight={700}>Usuários</Text>
+            <Heading size="md">Usuários</Heading>
           </HStack>
           <Button variant='secondary' leftIcon={isMobile ? undefined : <Icon name='plus' size={16} />} onClick={openCreate}>{isMobile ? <Icon name='plus' size={16} /> : 'Adicionar'}</Button>
         </HStack>
