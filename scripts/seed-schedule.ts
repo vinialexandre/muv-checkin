@@ -22,7 +22,7 @@ async function main() {
       id: 'default',
       title: 'Agenda MUV',
       description: 'Horários oficiais das aulas na MUV.',
-      slug: 'horarios-muv',
+      slug: 'Horários-muv',
       published: false,
       createdAt: new Date(),
       updatedAt: new Date(),

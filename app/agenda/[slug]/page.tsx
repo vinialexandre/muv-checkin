@@ -24,11 +24,11 @@ import { ScheduleDoc, ScheduleEntry, getPublishedScheduleBySlug } from '@/lib/fi
 const DISPLAY_WEEKDAYS = [1, 2, 3, 4, 5, 6, 0];
 const WEEKDAY_LABEL = new Map<number, string>([
   [1, 'Segunda'],
-  [2, 'Terca'],
+  [2, 'Terça'],
   [3, 'Quarta'],
   [4, 'Quinta'],
   [5, 'Sexta'],
-  [6, 'Sabado'],
+  [6, 'Sabádo'],
   [0, 'Domingo'],
 ]);
 
@@ -67,7 +67,7 @@ export default function AgendaPublicPage() {
       .catch((err: any) => {
         if (!active) return;
         console.error(err);
-        setError('Erro ao carregar os horarios. Tente novamente mais tarde.');
+        setError('Erro ao carregar os Horários. Tente novamente mais tarde.');
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -129,7 +129,7 @@ export default function AgendaPublicPage() {
 
             {entries.length === 0 ? (
               <Center py={10}>
-                <Text color="gray.500">Nenhum horario cadastrado no momento.</Text>
+                <Text color="gray.500">Nenhum Horário cadastrado no momento.</Text>
               </Center>
             ) : (
               <Box overflowX={isMobile ? 'auto' : 'hidden'}>
@@ -149,7 +149,7 @@ export default function AgendaPublicPage() {
                     py={3}
                     fontWeight={700}
                   >
-                    Horario
+                    Horário
                   </GridItem>
                   {DISPLAY_WEEKDAYS.map((day) => (
                     <GridItem

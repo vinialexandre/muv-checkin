@@ -63,11 +63,11 @@ import {
 
 const WEEKDAYS = [
   { value: 1, label: 'Segunda' },
-  { value: 2, label: 'Terca' },
+  { value: 2, label: 'Terça' },
   { value: 3, label: 'Quarta' },
   { value: 4, label: 'Quinta' },
   { value: 5, label: 'Sexta' },
-  { value: 6, label: 'Sabado' },
+  { value: 6, label: 'Sabádo' },
   { value: 0, label: 'Domingo' },
 ];
 const DISPLAY_WEEKDAYS = [1, 2, 3, 4, 5, 6, 0];
@@ -193,7 +193,7 @@ export default function ScheduleAdminPage() {
       <Input
         value={metaDraft.title}
         onChange={(event) => setMetaDraft((prev) => ({ ...prev, title: event.target.value }))}
-        placeholder="Ex.: Horarios da semana"
+        placeholder="Ex.: Horários da semana"
       />
     </FormControl>
   );
@@ -317,11 +317,11 @@ export default function ScheduleAdminPage() {
     const startMinutes = timeToMinutes(values.startTime);
     const endMinutes = timeToMinutes(values.endTime);
     if (Number.isNaN(startMinutes)) {
-      setError('startTime', { type: 'manual', message: 'Informe um horario valido' });
+      setError('startTime', { type: 'manual', message: 'Informe um Horário valido' });
       return;
     }
     if (Number.isNaN(endMinutes)) {
-      setError('endTime', { type: 'manual', message: 'Informe um horario valido' });
+      setError('endTime', { type: 'manual', message: 'Informe um Horário valido' });
       return;
     }
     if (endMinutes <= startMinutes) {
@@ -435,7 +435,7 @@ export default function ScheduleAdminPage() {
                 <Input
                   value={metaDraft.title}
                   onChange={(event) => setMetaDraft((prev) => ({ ...prev, title: event.target.value }))}
-                  placeholder="Ex.: Horarios da semana"
+                  placeholder="Ex.: Horários da semana"
                 />
               </FormControl>
               <FormControl>
@@ -496,7 +496,7 @@ export default function ScheduleAdminPage() {
             </Center>
           ) : entries.length === 0 ? (
             <Center py={10} flexDirection="column" gap={2}>
-              <Text color="gray.500">Nenhum horario cadastrado ainda.</Text>
+              <Text color="gray.500">Nenhum Horário cadastrado ainda.</Text>
               <Button variant="outline" onClick={openCreateEntry}>Adicionar primeiro evento</Button>
             </Center>
           ) : (
@@ -517,7 +517,7 @@ export default function ScheduleAdminPage() {
                   py={3}
                   fontWeight={700}
                 >
-                  Horario
+                  Horário
                 </GridItem>
                 {DISPLAY_WEEKDAYS.map((day) => (
                   <GridItem
@@ -631,12 +631,12 @@ export default function ScheduleAdminPage() {
               <Flex gap={4} direction={isMobile ? 'column' : 'row'}>
                 <FormControl isInvalid={!!formState.errors.startTime}>
                   <FormLabel>Início</FormLabel>
-                  <Input type="time" step="300" {...register('startTime', { required: 'Informe o horario de Início' })} />
+                  <Input type="time" step="300" {...register('startTime', { required: 'Informe o Horário de Início' })} />
                   <FormErrorMessage>{formState.errors.startTime?.message}</FormErrorMessage>
                 </FormControl>
                 <FormControl isInvalid={!!formState.errors.endTime}>
                   <FormLabel>Término</FormLabel>
-                  <Input type="time" step="300" {...register('endTime', { required: 'Informe o horario de Término' })} />
+                  <Input type="time" step="300" {...register('endTime', { required: 'Informe o Horário de Término' })} />
                   <FormErrorMessage>{formState.errors.endTime?.message}</FormErrorMessage>
                 </FormControl>
               </Flex>

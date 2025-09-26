@@ -49,7 +49,7 @@ export type ScheduleDoc = {
 export type ScheduleEntry = {
   id: string;
   scheduleId: string;
-  weekday: number; // 0 (domingo) ... 6 (sabado)
+  weekday: number; // 0 (domingo) ... 6 (Sabádo)
   startMinutes: number; // minutos desde 00:00
   endMinutes: number;
   title: string;
