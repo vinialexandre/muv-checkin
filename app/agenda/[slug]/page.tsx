@@ -28,7 +28,7 @@ const WEEKDAY_LABEL = new Map<number, string>([
   [3, 'Quarta'],
   [4, 'Quinta'],
   [5, 'Sexta'],
-  [6, 'Sabádo'],
+  [6, 'Sábado'],
   [0, 'Domingo'],
 ]);
 

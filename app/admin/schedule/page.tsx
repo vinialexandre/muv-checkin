@@ -67,7 +67,7 @@ const WEEKDAYS = [
   { value: 3, label: 'Quarta' },
   { value: 4, label: 'Quinta' },
   { value: 5, label: 'Sexta' },
-  { value: 6, label: 'Sabádo' },
+  { value: 6, label: 'Sábado' },
   { value: 0, label: 'Domingo' },
 ];
 const DISPLAY_WEEKDAYS = [1, 2, 3, 4, 5, 6, 0];
