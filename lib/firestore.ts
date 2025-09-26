@@ -1,5 +1,6 @@
 import { db } from '@/lib/firebase';
-import { Timestamp, collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, where, runTransaction } from 'firebase/firestore';
+import { generateSlug } from '@/lib/utils';
+import { Timestamp, collection, deleteDoc, deleteField, doc, getDoc, getDocs, limit, orderBy, query, runTransaction, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
 
 export type Student = {
   id: string;
@@ -34,6 +35,173 @@ export type Attendance = {
   source: 'face'|'manual';
   createdAt: Timestamp;
 };
+
+export type ScheduleDoc = {
+  id: string;
+  title?: string;
+  description?: string;
+  slug: string;
+  published: boolean;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+};
+
+export type ScheduleEntry = {
+  id: string;
+  scheduleId: string;
+  weekday: number; // 0 (domingo) ... 6 (sabado)
+  startMinutes: number; // minutos desde 00:00
+  endMinutes: number;
+  title: string;
+  notes?: string;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+};
+
+export type ScheduleWithEntries = {
+  schedule: ScheduleDoc;
+  entries: ScheduleEntry[];
+};
+
+export const DEFAULT_SCHEDULE_ID = 'default';
+
+function scheduleDocRef(id: string = DEFAULT_SCHEDULE_ID) {
+  return doc(db, 'schedules', id);
+}
+
+function scheduleEntriesCollection(id: string = DEFAULT_SCHEDULE_ID) {
+  return collection(db, 'schedules', id, 'entries');
+}
+
+async function slugInUse(slug: string, ignoreId?: string) {
+  const result = await getDocs(
+    query(collection(db, 'schedules'), where('slug', '==', slug), limit(1)),
+  );
+  if (result.empty) return false;
+  const found = result.docs[0];
+  return found.id !== ignoreId;
+}
+
+export async function ensureSchedule(id: string = DEFAULT_SCHEDULE_ID) {
+  const ref = scheduleDocRef(id);
+  const snap = await getDoc(ref);
+  if (snap.exists()) {
+    return { id: snap.id, ...(snap.data() as any) } as ScheduleDoc;
+  }
+  const now = Timestamp.fromDate(new Date());
+  const data: ScheduleDoc = {
+    id,
+    title: 'Agenda MUV',
+    description: '',
+    slug: generateSlug(),
+    published: false,
+    createdAt: now,
+    updatedAt: now,
+  };
+  await setDoc(ref, data);
+  return data;
+}
+
+export async function updateScheduleMeta(params: { id?: string; title?: string; description?: string; published?: boolean; slug?: string; }) {
+  const { id = DEFAULT_SCHEDULE_ID, ...rest } = params;
+  await ensureSchedule(id);
+  const ref = scheduleDocRef(id);
+  const payload: Record<string, unknown> = { updatedAt: serverTimestamp() };
+  if ('title' in rest) payload.title = rest.title ?? '';
+  if ('description' in rest) payload.description = rest.description ?? '';
+  if ('published' in rest) payload.published = !!rest.published;
+  if ('slug' in rest && rest.slug) payload.slug = rest.slug;
+  await updateDoc(ref, payload);
+}
+
+export async function regenerateScheduleSlug(id: string = DEFAULT_SCHEDULE_ID) {
+  await ensureSchedule(id);
+  let slug = generateSlug();
+  let attempts = 0;
+  while (attempts < 5) {
+    const conflict = await slugInUse(slug, id);
+    if (!conflict) break;
+    slug = generateSlug();
+    attempts++;
+  }
+  await updateScheduleMeta({ id, slug });
+  return slug;
+}
+
+export async function listScheduleEntries(id: string = DEFAULT_SCHEDULE_ID) {
+  await ensureSchedule(id);
+  const entriesSnap = await getDocs(
+    query(
+      scheduleEntriesCollection(id),
+      orderBy('weekday'),
+      orderBy('startMinutes'),
+    ),
+  );
+  return entriesSnap.docs.map((d) => ({ id: d.id, ...(d.data() as any) } as ScheduleEntry));
+}
+
+export async function upsertScheduleEntry(params: { scheduleId?: string; id?: string; weekday: number; startMinutes: number; endMinutes: number; title: string; notes?: string | null; }) {
+  const { scheduleId = DEFAULT_SCHEDULE_ID, id, weekday, startMinutes, endMinutes, title, notes } = params;
+  if (endMinutes <= startMinutes) throw new Error('endMinutes must be greater than startMinutes');
+  if (weekday < 0 || weekday > 6) throw new Error('weekday must be between 0 and 6');
+  await ensureSchedule(scheduleId);
+  const col = scheduleEntriesCollection(scheduleId);
+  const normalizedNotes = typeof notes === 'string' ? notes.trim() : notes;
+  const payload: Record<string, unknown> = {
+    scheduleId,
+    weekday,
+    startMinutes,
+    endMinutes,
+    title,
+    updatedAt: serverTimestamp(),
+  };
+  if (id) {
+    if (typeof normalizedNotes === 'string') {
+      if (normalizedNotes.length) payload.notes = normalizedNotes;
+      else payload.notes = deleteField();
+    } else if (normalizedNotes === null) {
+      payload.notes = deleteField();
+    }
+    await updateDoc(doc(col, id), payload);
+    return { id, scheduleId, weekday, startMinutes, endMinutes, title, notes: typeof normalizedNotes === 'string' && normalizedNotes.length ? normalizedNotes : undefined } as ScheduleEntry;
+  }
+  const ref = doc(col);
+  const data: Record<string, unknown> = { ...payload, id: ref.id, createdAt: serverTimestamp() };
+  if (typeof normalizedNotes === 'string' && normalizedNotes.length) {
+    data.notes = normalizedNotes;
+  }
+  await setDoc(ref, data);
+  return { id: ref.id, scheduleId, weekday, startMinutes, endMinutes, title, notes: typeof normalizedNotes === 'string' && normalizedNotes.length ? normalizedNotes : undefined } as ScheduleEntry;
+}
+
+export async function deleteScheduleEntry(scheduleId: string, entryId: string) {
+  await deleteDoc(doc(scheduleEntriesCollection(scheduleId), entryId));
+}
+
+export async function getPublishedScheduleBySlug(slug: string): Promise<ScheduleWithEntries | undefined> {
+  const scheduleSnap = await getDocs(
+    query(
+      collection(db, 'schedules'),
+      where('slug', '==', slug),
+      where('published', '==', true),
+      limit(1),
+    ),
+  );
+  if (scheduleSnap.empty) return undefined;
+  const docSnap = scheduleSnap.docs[0];
+  const schedule = { id: docSnap.id, ...(docSnap.data() as any) } as ScheduleDoc;
+  const entriesSnap = await getDocs(
+    query(
+      scheduleEntriesCollection(docSnap.id),
+      orderBy('weekday'),
+      orderBy('startMinutes'),
+    ),
+  );
+  const entries = entriesSnap.docs.map((d) => ({ id: d.id, ...(d.data() as any) } as ScheduleEntry));
+  return { schedule, entries };
+}
+
+
 
 // Nova função simplificada para check-in sem dependência de aulas
 // Mantém ID dinâmico no documento de check-in e usa um "lock" diário determinístico para evitar duplicatas sem precisar de índice composto.

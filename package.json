@@ -9,6 +9,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "seed": "tsx scripts/seed.ts",
+    "seed:schedule": "tsx scripts/seed-schedule.ts",
     "models": "tsx scripts/download-face-models.ts"
   },
   "dependencies": {

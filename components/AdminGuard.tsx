@@ -15,7 +15,7 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
       const idt = await user.getIdTokenResult();
       const role = (idt.claims as any).role || (idt.claims.admin ? 'admin' : undefined);
       const isPrivileged = role === 'admin' || role === 'developer';
-      const isAttendantAllowed = role === 'attendant' && (pathname?.startsWith('/admin/students') || pathname?.startsWith('/admin/kiosk') || pathname?.startsWith('/admin/checkins'));
+      const isAttendantAllowed = role === 'attendant' && (pathname?.startsWith('/admin/students') || pathname?.startsWith('/admin/schedule') || pathname?.startsWith('/admin/kiosk') || pathname?.startsWith('/admin/checkins'));
       if (!isPrivileged && !isAttendantAllowed) { router.replace('/login'); return; }
       setReady(true);
     });

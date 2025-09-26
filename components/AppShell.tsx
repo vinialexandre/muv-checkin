@@ -10,6 +10,7 @@ import { Icon, IconName } from '@/components/Icon';
 const navItems: { href: string; label: string; icon: IconName }[] = [
   { href: '/admin/students', label: 'Alunos', icon: 'users' },
   { href: '/admin/plans', label: 'Planos', icon: 'folder' },
+  { href: '/admin/schedule', label: 'Agenda', icon: 'calendar' },
   { href: '/admin/checkins', label: 'Check-ins', icon: 'clock' },
   { href: '/kiosk', label: 'Kiosque', icon: 'monitor' },
   { href: '/admin/users', label: 'Usuários', icon: 'user' },
@@ -92,7 +93,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               {navItems
                 .filter(item => {
                   if (role === 'attendant') {
-                    return item.href === '/admin/students' || item.href === '/kiosk' || item.href === '/admin/checkins';
+                    return item.href === '/admin/students' || item.href === '/admin/schedule' || item.href === '/kiosk' || item.href === '/admin/checkins';
                   }
                   return true;
                 })
@@ -134,7 +135,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             {navItems
               .filter(item => {
                 if (role === 'attendant') {
-                  return item.href === '/admin/students' || item.href === '/kiosk' || item.href === '/admin/checkins';
+                  return item.href === '/admin/students' || item.href === '/admin/schedule' || item.href === '/kiosk' || item.href === '/admin/checkins';
                 }
                 return true;
               })
