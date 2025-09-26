@@ -507,7 +507,7 @@ export default function ScheduleAdminPage() {
                 borderColor="gray.200"
                 borderRadius="lg"
                 bg="white"
-                minW="100%"
+                w={{ base: 'max-content', md: '100%' }}
               >
                 <GridItem
                   bg="gray.50"
