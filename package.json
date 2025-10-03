@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint --max-warnings=0 . --ext .ts,.tsx,.js,.jsx",
     "typecheck": "tsc --noEmit",
     "seed": "tsx scripts/seed.ts",
     "seed:schedule": "tsx scripts/seed-schedule.ts",
@@ -52,3 +52,4 @@
     "node-fetch": "^2.6.7"
   }
 }
+

@@ -68,7 +68,7 @@ export default function KioskPage() {
       }
     );
     return () => unsub();
-  }, [authed]);
+  }, [authed, toast]);
 
   useEffect(() => {
     if (faceLoading) log('face-models','loading');
@@ -99,7 +99,7 @@ export default function KioskPage() {
       window.setTimeout(()=>{ setHud(undefined); }, 2000);
       log('ready-to-capture','yes',{ candidates });
     }
-  }, [ready, authed, cameraReady, students]);
+  }, [ready, authed, cameraReady, students, readyToCapture]);
 
   useEffect(() => {
     return () => { if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = undefined; } };

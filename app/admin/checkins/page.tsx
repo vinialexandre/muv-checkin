@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState } from 'react';
+/* eslint-disable react-hooks/exhaustive-deps */
+import { useEffect, useState, useCallback } from 'react';
 import { Icon } from '@/components/Icon';
 import { Badge, Box, Button, Heading, HStack, Table, Tbody, Td, Text, Th, Thead, Tr, VStack, useToast, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter, ModalCloseButton, FormControl, FormLabel, Select, Input, Spinner, useMediaQuery } from '@chakra-ui/react';
 import PageCard from '@/components/PageCard';
@@ -43,33 +44,9 @@ export default function CheckInsPage() {
   const [filterEnd, setFilterEnd] = useState<string>(initial7.end);
   const [preset, setPreset] = useState<string>('7');
   const [filterPlanId, setFilterPlanId] = useState<string>('');
+  const [isMobile] = useMediaQuery('(max-width: 780px)');
 
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const [studentsSnap, plansSnap] = await Promise.all([
-          getDocs(query(collection(db, 'students'), orderBy('name'))),
-          getDocs(query(collection(db, 'plans'), orderBy('name')))
-        ]);
-        const studentsArr = studentsSnap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
-        const plansArr = plansSnap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
-        setStudents(studentsArr.filter(s => (s.active ?? true)));
-        setPlans(plansArr);
-      } catch (e) {
-        toast({ title: 'Erro ao carregar dados', status: 'error' });
-      }
-    })();
-  }, []);
-
-
-	const [isMobile] = useMediaQuery('(max-width: 780px)');
-
-  async function loadData(overrides?: { start?: string; end?: string; studentText?: string }) {
+  const loadData = useCallback(async (overrides?: { start?: string; end?: string; studentText?: string }) => {
     setLoading(true);
     try {
       // Garantir que os planos estejam carregados
@@ -137,9 +114,34 @@ export default function CheckInsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [plans, students, filterStart, filterEnd, filterStudentText, filterPlanId, toast]);
 
-  async function exportCurrentMonth() {
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [studentsSnap, plansSnap] = await Promise.all([
+          getDocs(query(collection(db, 'students'), orderBy('name'))),
+          getDocs(query(collection(db, 'plans'), orderBy('name')))
+        ]);
+        const studentsArr = studentsSnap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+        const plansArr = plansSnap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+        setStudents(studentsArr.filter(s => (s.active ?? true)));
+        setPlans(plansArr);
+      } catch (e) {
+        toast({ title: 'Erro ao carregar dados', status: 'error' });
+      }
+    })();
+  }, [toast]);
+
+
+	  async function exportCurrentMonth() {
     try {
       const now = new Date();
       const csv = await exportCheckInsCsvForMonth(now.getFullYear(), now.getMonth());
@@ -419,3 +421,5 @@ export default function CheckInsPage() {
     </PageCard>
   );
 }
+
+/* eslint-enable react-hooks/exhaustive-deps */

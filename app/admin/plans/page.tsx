@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { db } from '@/lib/firebase';
 import { AlertDialog, AlertDialogBody, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogOverlay, Badge, Button, Center, HStack, Input, Spinner, Table, Tbody, Td, Text, Th, Thead, Tr, VStack, useToast, Box, useMediaQuery, Heading } from '@chakra-ui/react';
 import Link from 'next/link';
@@ -8,8 +8,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import PageCard from '@/components/PageCard';
 
 import { Icon } from '@/components/Icon';
+import { Plan, PlanBillingInterval, PlanPaymentMethod, PlanSyncStatus } from '@/lib/firestore';
 
-type Plan = { id: string; name: string; price: number; period?: 'monthly'|'quarterly'|'semiannual'|'annual'; active?: boolean };
 function labelPeriod(p?: 'monthly'|'quarterly'|'semiannual'|'annual'): string {
   switch(p){
     case 'monthly': return 'Mensal';
@@ -17,6 +17,43 @@ function labelPeriod(p?: 'monthly'|'quarterly'|'semiannual'|'annual'): string {
     case 'semiannual': return 'Semestral';
     case 'annual': return 'Anual';
     default: return '-';
+  }
+}
+
+function labelInterval(interval?: PlanBillingInterval, count?: number, cycles?: number) {
+  if (!interval || !count) return '-';
+  const intervalLabel = {
+    day: 'dia(s)',
+    week: 'semana(s)',
+    month: 'mês(es)',
+    year: 'ano(s)',
+  }[interval];
+  const base = `A cada ${count} ${intervalLabel}`;
+  if (cycles && cycles > 0) return `${base} · ${cycles} ciclo(s)`;
+  return base;
+}
+
+function labelPaymentMethods(methods?: PlanPaymentMethod[]) {
+  if (!methods || !methods.length) return '-';
+  return methods.map((m) => {
+    switch (m) {
+      case 'credit_card': return 'Cartão';
+      case 'pix': return 'Pix';
+      case 'boleto': return 'Boleto';
+      default: return m;
+    }
+  }).join(' · ');
+}
+
+function syncBadge(status?: PlanSyncStatus) {
+  switch (status) {
+    case 'synced':
+      return { label: 'Sincronizado', scheme: 'green' as const };
+    case 'error':
+      return { label: 'Erro', scheme: 'red' as const };
+    case 'pending':
+    default:
+      return { label: 'Pendente', scheme: 'yellow' as const };
   }
 }
 
@@ -31,6 +68,7 @@ export default function PlansPage() {
   const [deleteId, setDeleteId] = useState<string|undefined>();
   const [navigating, setNavigating] = useState(false);
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const [syncingId, setSyncingId] = useState<string | null>(null);
 
   const [displayCount, setDisplayCount] = useState(10);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -40,7 +78,7 @@ export default function PlansPage() {
     const unsub = onSnapshot(
       q,
       (s) => {
-        setPlans(s.docs.map(d => ({ id: d.id, ...(d.data() as any) })));
+        setPlans(s.docs.map(d => ({ id: d.id, ...(d.data() as any) })) as Plan[]);
         setError(undefined);
         setLoading(false);
       },
@@ -54,14 +92,11 @@ export default function PlansPage() {
     return () => unsub();
   }, []);
 
-
-	const [isMobile] = useMediaQuery('(max-width: 780px)');
+  const [isMobile] = useMediaQuery('(max-width: 780px)');
 
   const filtered = useMemo(() => plans.filter(p => !filterName || p.name.toLowerCase().includes(filterName.toLowerCase())), [plans, filterName]);
 
-  const displayedPlans = useMemo(() => {
-    return filtered.slice(0, displayCount);
-  }, [filtered, displayCount]);
+  const displayedPlans = useMemo(() => filtered.slice(0, displayCount), [filtered, displayCount]);
 
   const hasMore = displayCount < filtered.length;
 
@@ -82,6 +117,23 @@ export default function PlansPage() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, [hasMore, loadingMore]);
+
+
+  async function syncPlan(planId: string) {
+    try {
+      setSyncingId(planId);
+      const res = await fetch(`/api/plans/${planId}/sync`, { method: 'POST' });
+      const json = await res.json().catch(() => undefined);
+      if (!res.ok || !json?.ok) {
+        throw new Error(json?.error || 'Falha ao sincronizar plano');
+      }
+      toast({ title: 'Plano sincronizado', status: 'success' });
+    } catch (e: any) {
+      toast({ title: 'Erro ao sincronizar', description: String(e?.message || e), status: 'error' });
+    } finally {
+      setSyncingId(null);
+    }
+  }
 
   async function removeNow() {
     if (!deleteId) return;
@@ -131,43 +183,70 @@ export default function PlansPage() {
         ) : (
           isMobile ? (
             <VStack spacing={3} mt={5} align="stretch">
-              {displayedPlans.map(p => (
-                <Box key={p.id} borderWidth="1px" borderRadius="md" p={4}>
-                  <HStack justify="space-between" align="start">
-                    <VStack align="start" spacing={1}>
+              {displayedPlans.map(p => {
+                const sync = syncBadge(p.planSyncStatus as PlanSyncStatus | undefined);
+                return (
+                  <Box key={p.id} borderWidth="1px" borderRadius="md" p={4}>
+                    <VStack align="stretch" spacing={2}>
                       <Text fontWeight={700}>{p.name}</Text>
-                      <Text fontSize="sm" color="gray.600">Período: {labelPeriod(p.period as any)}</Text>
+                      <Text fontSize="sm" color="gray.600">Etiqueta: {labelPeriod(p.period as any)}</Text>
+                      <Text fontSize="sm" color="gray.600">Cobrança: {labelInterval(p.billingInterval as PlanBillingInterval | undefined, p.billingIntervalCount as number | undefined, p.billingCycles as number | undefined)}</Text>
+                      <Text fontSize="sm" color="gray.600">Métodos: {labelPaymentMethods(p.paymentMethods as PlanPaymentMethod[] | undefined)}</Text>
                       <Text fontSize="sm" color="gray.600">Preço: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.price || 0)}</Text>
-                      <Badge colorScheme={(p.active===false)?'red':'green'}>{(p.active===false)?'Inativo':'Ativo'}</Badge>
+                      <HStack spacing={2}>
+                        <Badge colorScheme={(p.active===false)?'red':'green'}>{(p.active===false)?'Inativo':'Ativo'}</Badge>
+                        <Badge colorScheme={sync.scheme}>{sync.label}</Badge>
+                      </HStack>
                     </VStack>
-                    <HStack spacing={2}>
+                    <HStack spacing={2} justify="flex-end" mt={3}>
+                      <Button size="sm" variant="outline" onClick={() => syncPlan(p.id)} isLoading={syncingId === p.id} isDisabled={!!syncingId && syncingId !== p.id}>
+                        <Icon name='refresh' size={16} />
+                      </Button>
                       <Button size="sm" as={Link} href={`/admin/plans/${p.id}/edit` as any}><Icon name='edit' size={16} /></Button>
                       <Button size="sm" variant="outline" colorScheme='red' onClick={() => setDeleteId(p.id)}><Icon name='trash' size={16} /></Button>
                     </HStack>
-                  </HStack>
-                </Box>
-              ))}
+                  </Box>
+                );
+              })}
               {loadingMore && <Center py={4}><Spinner size="sm" /></Center>}
             </VStack>
           ) : (
             <>
               <Table size="md" mt={5}>
-                <Thead><Tr><Th>Nome</Th><Th>Preço</Th><Th>Período</Th><Th>Status</Th><Th textAlign="right" pr={24}>Ações</Th></Tr></Thead>
+                <Thead>
+                  <Tr>
+                    <Th>Nome</Th>
+                    <Th>Preço</Th>
+                    <Th>Etiqueta</Th>
+                    <Th>Cobrança</Th>
+                    <Th>Métodos</Th>
+                    <Th>Status</Th>
+                    <Th>Sync</Th>
+                    <Th textAlign="right" pr={24}>Ações</Th>
+                  </Tr>
+                </Thead>
                 <Tbody>
-                  {displayedPlans.map(p => (
-                    <Tr key={p.id}>
-                      <Td>{p.name}</Td>
-                      <Td>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.price || 0)}</Td>
-                      <Td>{labelPeriod(p.period as any)}</Td>
-                      <Td><Badge colorScheme={(p.active===false)?'red':'green'}>{(p.active===false)?'Inativo':'Ativo'}</Badge></Td>
-                      <Td textAlign="right">
-                        <HStack justify="flex-end" spacing={2}>
-                          <Button size="sm" leftIcon={<Icon name='edit' size={16} />} as={Link} href={`/admin/plans/${p.id}/edit` as any}>Editar</Button>
-                          <Button size="sm" variant="outline" leftIcon={<Icon name='trash' size={16} />} colorScheme='red' onClick={() => setDeleteId(p.id)}>Excluir</Button>
-                        </HStack>
-                      </Td>
-                    </Tr>
-                  ))}
+                  {displayedPlans.map(p => {
+                    const sync = syncBadge(p.planSyncStatus as PlanSyncStatus | undefined);
+                    return (
+                      <Tr key={p.id}>
+                        <Td>{p.name}</Td>
+                        <Td>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.price || 0)}</Td>
+                        <Td>{labelPeriod(p.period as any)}</Td>
+                        <Td>{labelInterval(p.billingInterval as PlanBillingInterval | undefined, p.billingIntervalCount as number | undefined, p.billingCycles as number | undefined)}</Td>
+                        <Td>{labelPaymentMethods(p.paymentMethods as PlanPaymentMethod[] | undefined)}</Td>
+                        <Td><Badge colorScheme={(p.active===false)?'red':'green'}>{(p.active===false)?'Inativo':'Ativo'}</Badge></Td>
+                        <Td><Badge colorScheme={sync.scheme}>{sync.label}</Badge></Td>
+                        <Td textAlign="right">
+                          <HStack justify="flex-end" spacing={2}>
+                            <Button size="sm" variant="outline" leftIcon={<Icon name='refresh' size={16} />} onClick={() => syncPlan(p.id)} isLoading={syncingId === p.id} isDisabled={!!syncingId && syncingId !== p.id}>Sync</Button>
+                            <Button size="sm" leftIcon={<Icon name='edit' size={16} />} as={Link} href={`/admin/plans/${p.id}/edit` as any}>Editar</Button>
+                            <Button size="sm" variant="outline" leftIcon={<Icon name='trash' size={16} />} colorScheme='red' onClick={() => setDeleteId(p.id)}>Excluir</Button>
+                          </HStack>
+                        </Td>
+                      </Tr>
+                    );
+                  })}
                 </Tbody>
               </Table>
               {loadingMore && <Center py={4}><Spinner size="sm" /></Center>}
@@ -190,4 +269,3 @@ export default function PlansPage() {
     </VStack>
   );
 }
-

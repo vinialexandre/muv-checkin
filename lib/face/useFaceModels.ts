@@ -15,8 +15,6 @@ export function useFaceModels() {
     let cancelled = false;
     
     const load = async () => {
-      if (loading) return; // Evita múltiplas chamadas simultâneas
-      
       setLoading(true);
       setError(undefined);
       

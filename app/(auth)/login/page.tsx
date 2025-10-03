@@ -28,7 +28,7 @@ export default function LoginPage() {
       else { setError('Seu usuário não possui acesso. Peça para um admin definir seu papel.'); toast({ status:'error', title:'Acesso negado', description:'Seu usuário não possui papel com acesso.' }); }
     });
     return () => unsub();
-  }, [router]);
+  }, [router, toast]);
 
   const submit = async () => {
     setError(undefined);

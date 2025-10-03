@@ -2,21 +2,126 @@ import { db } from '@/lib/firebase';
 import { generateSlug } from '@/lib/utils';
 import { Timestamp, collection, deleteDoc, deleteField, doc, getDoc, getDocs, limit, orderBy, query, runTransaction, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
 
+export type StudentBillingContact = {
+  name: string;
+  email: string;
+  document: string; // somente dígitos
+  phone: string; // DDD + número somente dígitos
+  countryCode?: string; // default '55'
+};
+
+export type StudentBillingAddress = {
+  street: string;
+  number?: string;
+  complement?: string;
+  district: string;
+  city: string;
+  state: string; // UF
+  zipCode: string;
+  country: string; // ISO-3166 alpha-2
+};
+
+export type StudentPaymentPreference = 'credit_card'|'pix'|'boleto';
+export type StudentPaymentStatus = 'unknown'|'in_good_standing'|'pending'|'past_due'|'canceled';
+
 export type Student = {
   id: string;
   name: string;
   phone?: string;
+  whatsapp?: string;
+  email?: string;
+  birthDate?: string;
+  guardianName?: string;
+  guardianPhone?: string;
+  guardianEmail?: string;
   active?: boolean;
   photos?: string[];
   descriptors?: number[][]; // 128 each
   centroid?: number[]; // 128
   activePlanId?: string;
+  weightKg?: number;
+  heightCm?: number;
+  techNotes?: string;
+  billingContact?: StudentBillingContact;
+  billingAddress?: StudentBillingAddress;
+  billingConsentAcceptedAt?: Timestamp;
+  billingConsentVersion?: string;
+  paymentPreference?: StudentPaymentPreference;
+  pagarmeCustomerId?: string;
+  paymentStatus?: StudentPaymentStatus;
   // Pagamento mensal: usamos lastPaidAt para calcular o vencimento (1 mês após)
   lastPaidAt?: Timestamp;
 };
 
-// Planos mensais: apenas nome e preço (R$)
-export type Plan = { id: string; name: string; price: number };
+export type PlanBillingInterval = 'day'|'week'|'month'|'year';
+export type PlanPaymentMethod = 'credit_card'|'pix'|'boleto';
+export type PlanSyncStatus = 'pending'|'synced'|'error';
+
+export type Plan = {
+  id: string;
+  name: string;
+  price: number;
+  period?: 'monthly'|'quarterly'|'semiannual'|'annual';
+  active?: boolean;
+  billingInterval?: PlanBillingInterval;
+  billingIntervalCount?: number;
+  paymentMethods?: PlanPaymentMethod[];
+  billingCycles?: number;
+  pagarmePlanId?: string;
+  planSyncStatus?: PlanSyncStatus;
+  planSyncError?: string;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+};
+
+export type SubscriptionStatus = 'pending'|'active'|'past_due'|'canceled'|'paused';
+
+export type Subscription = {
+  id: string;
+  studentId: string;
+  planId: string;
+  planSnapshotName?: string;
+  price?: number;
+  paymentMethod?: PlanPaymentMethod;
+  payerName?: string;
+  pagarmePlanId?: string;
+  pagarmeCustomerId?: string;
+  pagarmeSubscriptionId?: string;
+  status: SubscriptionStatus;
+  nextBillingAt?: Timestamp;
+  lastChargeAt?: Timestamp;
+  consentAcceptedAt?: Timestamp;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+};
+
+export type SubscriptionInvoiceStatus = 'pending'|'paid'|'canceled'|'failed'|'expired'|'past_due';
+
+export type SubscriptionInvoice = {
+  id: string;
+  pagarmeInvoiceId: string;
+  subscriptionId: string;
+  studentId: string;
+  planId: string;
+  amount: number;
+  paymentMethod: PlanPaymentMethod;
+  status: SubscriptionInvoiceStatus;
+  dueAt?: Timestamp;
+  pix?: {
+    qrCode?: string;
+    qrCodeUrl?: string;
+    expiresAt?: Timestamp;
+  };
+  boleto?: {
+    pdf?: string;
+    line?: string;
+    barcode?: string;
+    expiresAt?: Timestamp;
+  };
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+};
+
 export type ClassDoc = { id: string; modality: string; startsAt: Timestamp; endsAt: Timestamp; roster?: string[] };
 
 // Nova estrutura simplificada para check-ins
@@ -27,7 +132,7 @@ export type CheckIn = {
   createdAt: Timestamp;
 };
 
-// Estrutura antiga mantida para compatibilidade (se necessário)
+// Estrutura antiga mantida para compatibilidade (se necessÃ¡rio)
 export type Attendance = {
   id: string; // classId_studentId_yyyymmdd
   classId: string;
@@ -49,7 +154,7 @@ export type ScheduleDoc = {
 export type ScheduleEntry = {
   id: string;
   scheduleId: string;
-  weekday: number; // 0 (domingo) ... 6 (Sábado)
+  weekday: number; // 0 (domingo) ... 6 (SÃ¡bado)
   startMinutes: number; // minutos desde 00:00
   endMinutes: number;
   title: string;
@@ -106,7 +211,7 @@ export async function updateScheduleMeta(params: { id?: string; title?: string; 
   const { id = DEFAULT_SCHEDULE_ID, ...rest } = params;
   await ensureSchedule(id);
   const ref = scheduleDocRef(id);
-  const payload: Record<string, unknown> = { updatedAt: serverTimestamp() };
+  const payload: Record<string, any> = { updatedAt: serverTimestamp() };
   if ('title' in rest) payload.title = rest.title ?? '';
   if ('description' in rest) payload.description = rest.description ?? '';
   if ('published' in rest) payload.published = !!rest.published;
@@ -147,7 +252,7 @@ export async function upsertScheduleEntry(params: { scheduleId?: string; id?: st
   await ensureSchedule(scheduleId);
   const col = scheduleEntriesCollection(scheduleId);
   const normalizedNotes = typeof notes === 'string' ? notes.trim() : notes;
-  const payload: Record<string, unknown> = {
+  const payload: Record<string, any> = {
     scheduleId,
     weekday,
     startMinutes,
@@ -209,7 +314,7 @@ export async function createCheckIn(args: { studentId: string; when: Date; sourc
   const d = args.when;
   const yyyymmdd = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
   const hhmmss = `${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}${String(d.getSeconds()).padStart(2,'0')}`;
-  const id = `${args.studentId}_${yyyymmdd}_${hhmmss}`; // ID dinâmico para o registro em si
+  const id = `${args.studentId}_${yyyymmdd}_${hhmmss}`; // ID dinÃ¢mico para o registro em si
   const checkinRef = doc(db, 'checkins', id);
 
   // Doc "lock" diário determinístico: um por aluno por dia
@@ -224,7 +329,7 @@ export async function createCheckIn(args: { studentId: string; when: Date; sourc
     if (lockSnap.exists()) {
       const data = lockSnap.data() as any;
       resultId = data?.firstCheckInId || resultId;
-      return; // já tem check-in hoje
+      return; // jÃ¡ tem check-in hoje
     }
     // Cria o lock e o check-in de forma atômica
     tx.set(lockRef, {
@@ -293,7 +398,7 @@ export async function exportCheckInsCsvForMonth(year: number, month0: number) {
 export async function getRecentCheckIns() {
   const q = query(
     collection(db, 'checkins'),
-    where('createdAt', '>=', Timestamp.fromDate(new Date(Date.now() - 24 * 60 * 60 * 1000))), // últimas 24h
+    where('createdAt', '>=', Timestamp.fromDate(new Date(Date.now() - 24 * 60 * 60 * 1000))), // Ãºltimas 24h
   );
   const snaps = await getDocs(q);
   return snaps.docs.map(doc => ({ id: doc.id, ...doc.data() } as CheckIn & { id: string }));
@@ -316,3 +421,4 @@ export async function exportAttendancesCsvForMonth(year: number, month0: number)
 export async function deleteById(path: string, id: string) {
   await deleteDoc(doc(db, path, id));
 }
+
