@@ -5,8 +5,8 @@ function brl(amount: number) {
   try { return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((amount||0)/100) } catch { return `${(amount||0)/100}` }
 }
 
-export default async function SubscriptionInvoicesPage({ params }: { params: { subscription: string } }) {
-  const subscriptionId = params.subscription
+export default async function SubscriptionInvoicesPage({ params }: { params: Promise<{ subscription: string }> }) {
+  const { subscription: subscriptionId } = await params
   const invoices = await listInvoicesBySubscription({ subscriptionId })
   const rows = (Array.isArray(invoices) ? invoices : []) as PagarmeInvoice[]
 

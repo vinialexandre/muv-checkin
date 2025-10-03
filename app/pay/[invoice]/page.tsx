@@ -4,8 +4,8 @@ function brl(amount: number) {
   try { return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((amount||0)/100) } catch { return `${(amount||0)/100}` }
 }
 
-export default async function InvoicePage({ params }: { params: { invoice: string } }) {
-  const invoiceId = params.invoice
+export default async function InvoicePage({ params }: { params: Promise<{ invoice: string }> }) {
+  const { invoice: invoiceId } = await params
   const invoice = await getInvoice({ invoiceId })
   const charges = await listChargesByInvoice({ invoiceId })
   const charge = Array.isArray(charges) && charges.length ? charges[0] as PagarmeCharge : undefined
