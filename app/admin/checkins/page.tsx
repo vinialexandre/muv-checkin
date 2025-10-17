@@ -19,7 +19,7 @@ function computeLastNDays(days: number) {
   const end = new Date();
   const start = new Date();
   start.setDate(end.getDate() - (days - 1));
-  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   return { start: fmt(start), end: fmt(end) };
 }
 
@@ -33,7 +33,7 @@ export default function CheckInsPage() {
 
   const [manualOpen, setManualOpen] = useState(false);
   const [manualStudentId, setManualStudentId] = useState<string>('');
-  const [manualDate, setManualDate] = useState<string>(()=> new Date().toISOString().slice(0,10));
+  const [manualDate, setManualDate] = useState<string>(()=> { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`; });
   const [manualTime, setManualTime] = useState<string>(()=> new Date().toTimeString().slice(0,5));
   const [saving, setSaving] = useState(false);
 
@@ -163,7 +163,7 @@ export default function CheckInsPage() {
   function openManual() {
     setManualStudentId('');
     const now = new Date();
-    setManualDate(now.toISOString().slice(0,10));
+    setManualDate(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`);
     setManualTime(`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`);
     setManualOpen(true);
   }
@@ -176,14 +176,7 @@ export default function CheckInsPage() {
       const [hh,mm] = manualTime.split(':').map(Number);
       const when = new Date(y, (m||1)-1, d||1, hh||0, mm||0, 0);
 
-      // Pré-validação: impedir duplicidade no mesmo dia
-      const yyyymmdd = `${String(when.getFullYear())}${String(when.getMonth()+1).padStart(2,'0')}${String(when.getDate()).padStart(2,'0')}`;
-      const lockRef = doc(db, 'checkins_daily', `${manualStudentId}_${yyyymmdd}`);
-      const lockSnap = await getDoc(lockRef);
-      if (lockSnap.exists()) {
-        toast({ title: 'Já existe check-in neste dia para este aluno', status: 'info' });
-        return;
-      }
+
 
       const res = await createCheckIn({ studentId: manualStudentId, when, source: 'manual' });
       toast({ title: res.created ? 'Check-in criado' : 'Check-in já registrado hoje', status: res.created ? 'success' : 'info' });
@@ -214,7 +207,7 @@ export default function CheckInsPage() {
     const end = new Date();
     const start = new Date();
     start.setDate(end.getDate() - (days-1));
-    const fmt = (d: Date)=> d.toISOString().slice(0,10);
+    const fmt = (d: Date)=> `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     setFilterStart(fmt(start));
     setFilterEnd(fmt(end));
   }

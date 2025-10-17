@@ -126,7 +126,7 @@ export type ClassDoc = { id: string; modality: string; startsAt: Timestamp; ends
 
 // Nova estrutura simplificada para check-ins
 export type CheckIn = {
-  id: string; // studentId_yyyymmdd_hhmmss
+  id: string; // studentId_yyyymmdd
   studentId: string;
   source: 'face'|'manual';
   createdAt: Timestamp;
@@ -313,43 +313,24 @@ export async function getPublishedScheduleBySlug(slug: string): Promise<Schedule
 export async function createCheckIn(args: { studentId: string; when: Date; source: 'face'|'manual' }) {
   const d = args.when;
   const yyyymmdd = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
-  const hhmmss = `${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}${String(d.getSeconds()).padStart(2,'0')}`;
-  const id = `${args.studentId}_${yyyymmdd}_${hhmmss}`; // ID dinÃ¢mico para o registro em si
+  const id = `${args.studentId}_${yyyymmdd}`;
   const checkinRef = doc(db, 'checkins', id);
 
-  // Doc "lock" diário determinístico: um por aluno por dia
-  const lockId = `${args.studentId}_${yyyymmdd}`;
-  const lockRef = doc(db, 'checkins_daily', lockId);
-
   let created = false;
-  let resultId = id;
 
   await runTransaction(db, async (tx) => {
-    const lockSnap = await tx.get(lockRef);
-    if (lockSnap.exists()) {
-      const data = lockSnap.data() as any;
-      resultId = data?.firstCheckInId || resultId;
-      return; // jÃ¡ tem check-in hoje
-    }
-    // Cria o lock e o check-in de forma atômica
-    tx.set(lockRef, {
-      id: lockId,
-      studentId: args.studentId,
-      yyyymmdd,
-      firstCheckInId: id,
-      createdAt: Timestamp.fromDate(args.when),
-    });
+    const snap = await tx.get(checkinRef);
+    if (snap.exists()) return;
     tx.set(checkinRef, {
       id,
       studentId: args.studentId,
       source: args.source,
       createdAt: Timestamp.fromDate(args.when),
-    } satisfies CheckIn);
+    } as CheckIn);
     created = true;
   });
 
-  if (created) return { id: resultId, created: true };
-  return { id: resultId, created: false, reason: 'already_checked_today' };
+  return { id, created };
 }
 
 // Função antiga mantida para compatibilidade

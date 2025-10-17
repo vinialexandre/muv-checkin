@@ -24,7 +24,7 @@ export default function KioskPage() {
 
   const cooldownRef = useRef<Map<string, number>>(new Map());
   const checkedInHojeRef = useRef<Map<string, string>>(new Map());
-  const dayRef = useRef<string>(new Date().toISOString().slice(0,10));
+  const dayRef = useRef<string>(`${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${String(new Date().getDate()).padStart(2,'0')}`);
   const videoRef = useRef<HTMLVideoElement|null>(null);
   const overlayRef = useRef<HTMLCanvasElement|null>(null);
   const workerCanvasRef = useRef<HTMLCanvasElement|null>(null);
@@ -155,7 +155,7 @@ export default function KioskPage() {
       }
     } catch (e: any) { log('liveness','error', { name: e?.name, message: e?.message }); }
 
-    let today = new Date().toISOString().slice(0,10);
+    let today = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${String(new Date().getDate()).padStart(2,'0')}`;
     if (dayRef.current !== today) { dayRef.current = today; checkedInHojeRef.current.clear(); }
 
     if (isLive) livenessOkCountRef.current = Math.min(livenessOkCountRef.current + 1, 10);
