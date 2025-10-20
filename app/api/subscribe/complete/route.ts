@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'admin_sdk_nao_configurado' }, { status: 500 })
     }
 
-    const { token, paymentMethod, billingContact, billingAddress, planId: requestedPlanId } = await req.json()
+    const { token, paymentMethod, billingContact, billingAddress, planId: requestedPlanId, cardToken, cardHash } = await req.json()
 
     if (!token) {
       return NextResponse.json({ error: 'token_obrigatorio' }, { status: 400 })
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
     const contactPhone = onlyDigits(incomingContact.phone ?? existingContact.phone ?? student?.phone ?? student?.whatsapp)
     const contactCountryCode = onlyDigits(incomingContact.countryCode ?? existingContact.countryCode ?? '55') || '55'
 
-    const addressRequired = paymentMethod !== 'pix'
+    const addressRequired = true
     const existingAddress = student?.billingAddress || {}
     const incomingAddress = billingAddress || {}
 
@@ -105,6 +105,10 @@ export async function POST(req: NextRequest) {
     if (Object.values(missing).some(Boolean)) {
       return NextResponse.json({ error: 'dados_cobranca_incompletos', missing }, { status: 400 })
     }
+    if (paymentMethod === 'credit_card' && !cardToken && !cardHash) {
+      return NextResponse.json({ error: 'cartao_nao_tokenizado' }, { status: 400 })
+    }
+
 
     const ensured = await ensureCustomer({
       externalId: studentId,
@@ -119,6 +123,8 @@ export async function POST(req: NextRequest) {
       planId: String(plan.pagarmePlanId),
       paymentMethod,
       idempotencyKey: `subscribe:${studentId}:${String(plan.pagarmePlanId)}:${String(token)}`,
+      cardToken,
+      cardHash,
     })
 
     const contactToSave: Record<string, any> = {

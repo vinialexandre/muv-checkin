@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Controller, useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -29,10 +29,17 @@ import {
   Select,
   VStack
 } from '@chakra-ui/react'
-import { doc, getDoc } from 'firebase/firestore'
 import { IMaskInput } from 'react-imask'
 
-import { db } from '@/lib/firebase'
+type CepResponse = {
+  cep: string
+  logradouro: string
+  complemento: string
+  bairro: string
+  localidade: string
+  uf: string
+  erro?: boolean
+}
 
 const onlyDigits = (value?: string) => String(value || '').replace(/\D/g, '')
 
@@ -58,40 +65,38 @@ const schema = yup.object({
       const digits = onlyDigits(value)
       return digits.length === 10 || digits.length === 11
     }),
-  billingZipCode: yup.string().when('paymentMethod', {
-    is: (v: any) => v !== 'pix',
-    then: (s) => s.required('CEP obrigatório').test('cep', 'CEP inválido', (value) => onlyDigits(value).length === 8),
-    otherwise: (s) => s.optional(),
-  }),
-  billingStreet: yup.string().when('paymentMethod', {
-    is: (v: any) => v !== 'pix',
-    then: (s) => s.trim().min(2, 'Rua obrigatória').required('Rua obrigatória'),
-    otherwise: (s) => s.optional(),
-  }),
-  billingNumber: yup.string().when('paymentMethod', {
-    is: (v: any) => v !== 'pix',
-    then: (s) => s.trim().min(1, 'Número obrigatório').required('Número obrigatório'),
-    otherwise: (s) => s.optional(),
-  }),
+  billingZipCode: yup.string().required('CEP obrigatório').test('cep', 'CEP inválido', (value) => onlyDigits(value).length === 8),
+  billingStreet: yup.string().trim().min(2, 'Rua obrigatória').required('Rua obrigatória'),
+  billingNumber: yup.string().trim().min(1, 'Número obrigatório').required('Número obrigatório'),
   billingComplement: yup.string().trim().optional(),
-  billingDistrict: yup.string().when('paymentMethod', {
-    is: (v: any) => v !== 'pix',
-    then: (s) => s.trim().min(2, 'Bairro obrigatório').required('Bairro obrigatório'),
+  billingDistrict: yup.string().trim().min(2, 'Bairro obrigatório').required('Bairro obrigatório'),
+  billingCity: yup.string().trim().min(2, 'Cidade obrigatória').required('Cidade obrigatória'),
+  billingState: yup.string().trim().required('UF obrigatória').test('uf', 'UF inválida', (value) => /^[A-Za-z]{2}$/.test(String(value || '').toUpperCase())),
+  billingCountry: yup.string().trim().required('País obrigatório').test('country', 'País inválido', (value) => /^([A-Za-z]{2}|[A-Za-z]{2,})$/.test(String(value || ''))),
+  cardNumber: yup.string().when('paymentMethod', {
+    is: (v: any) => v === 'credit_card',
+    then: (s) => s.required('Número do cartão obrigatório').test('card', 'Número inválido', (value) => {
+      const d = onlyDigits(value)
+      return d.length >= 13 && d.length <= 19
+    }),
     otherwise: (s) => s.optional(),
   }),
-  billingCity: yup.string().when('paymentMethod', {
-    is: (v: any) => v !== 'pix',
-    then: (s) => s.trim().min(2, 'Cidade obrigatória').required('Cidade obrigatória'),
+  cardHolder: yup.string().when('paymentMethod', {
+    is: (v: any) => v === 'credit_card',
+    then: (s) => s.trim().min(3, 'Nome do titular obrigatório').required('Nome do titular obrigatório'),
     otherwise: (s) => s.optional(),
   }),
-  billingState: yup.string().when('paymentMethod', {
-    is: (v: any) => v !== 'pix',
-    then: (s) => s.trim().required('UF obrigatória').test('uf', 'UF inválida', (value) => /^[A-Za-z]{2}$/.test(String(value || '').toUpperCase())),
+  cardExp: yup.string().when('paymentMethod', {
+    is: (v: any) => v === 'credit_card',
+    then: (s) => s.required('Validade obrigatória').test('exp', 'Use MM/AA', (value) => /^\d{2}\/\d{2}$/.test(String(value || ''))),
     otherwise: (s) => s.optional(),
   }),
-  billingCountry: yup.string().when('paymentMethod', {
-    is: (v: any) => v !== 'pix',
-    then: (s) => s.trim().required('País obrigatório').test('country', 'País inválido', (value) => /^([A-Za-z]{2}|[A-Za-z]{2,})$/.test(String(value || ''))),
+  cardCvv: yup.string().when('paymentMethod', {
+    is: (v: any) => v === 'credit_card',
+    then: (s) => s.required('CVV obrigatório').test('cvv', 'CVV inválido', (value) => {
+      const d = onlyDigits(value)
+      return d.length >= 3 && d.length <= 4
+    }),
     otherwise: (s) => s.optional(),
   })
 })
@@ -111,7 +116,11 @@ const defaultValues: FormValues = {
   billingDistrict: '',
   billingCity: '',
   billingState: '',
-  billingCountry: 'BR'
+  billingCountry: 'BR',
+  cardNumber: '',
+  cardHolder: '',
+  cardExp: '',
+  cardCvv: ''
 }
 
 
@@ -139,13 +148,14 @@ export default function SubscribeTokenPage() {
   const [methods, setMethods] = useState<PaymentMethod[]>([])
   const [allowedPlans, setAllowedPlans] = useState<PlanOption[]>([])
   const [selectedPlanId, setSelectedPlanId] = useState('')
-
+  const [loadingCep, setLoadingCep] = useState(false)
 
   const {
     control,
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors, isSubmitting }
   } = useForm<FormValues>({
     mode: 'onChange',
@@ -154,6 +164,47 @@ export default function SubscribeTokenPage() {
   })
 
   const currentMethod = watch('paymentMethod')
+  const currentZipCode = watch('billingZipCode')
+
+  const searchCep = useCallback(async (cep: string) => {
+    const cleanCep = onlyDigits(cep)
+
+    if (cleanCep.length !== 8) return
+
+    setLoadingCep(true)
+
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`)
+      const data: CepResponse = await response.json()
+
+      if (data.erro) {
+        throw new Error('CEP não encontrado')
+      }
+
+      setValue('billingStreet', data.logradouro || '')
+      setValue('billingDistrict', data.bairro || '')
+      setValue('billingCity', data.localidade || '')
+      setValue('billingState', data.uf || '')
+      setValue('billingCountry', 'BR')
+
+    } catch (error) {
+      console.error('Erro ao buscar CEP:', error)
+    } finally {
+      setLoadingCep(false)
+    }
+  }, [setValue])
+
+  useEffect(() => {
+    console.log('CEP mudou:', currentZipCode)
+    if (currentZipCode) {
+      const cleanCep = onlyDigits(currentZipCode)
+      console.log('CEP limpo:', cleanCep, 'length:', cleanCep.length)
+      if (cleanCep.length === 8) {
+        console.log('Chamando searchCep')
+        searchCep(currentZipCode)
+      }
+    }
+  }, [currentZipCode, searchCep])
 
   useEffect(() => {
     let active = true
@@ -179,14 +230,11 @@ export default function SubscribeTokenPage() {
 
         const studentId = String(json.studentId)
         const basePlanId = String(json.planId)
-        const idList = Array.isArray(json.allowedPlanIds) && json.allowedPlanIds.length
-          ? json.allowedPlanIds.map((x: any) => String(x))
-          : [basePlanId]
+        const studentData = json.studentData
+        const plans = json.plans || []
 
-        const studentSnap = await getDoc(doc(db, 'students', studentId))
+        if (!studentData) throw new Error('Dados do aluno não encontrados')
 
-        if (!studentSnap.exists()) throw new Error('Aluno não encontrado')
-        const studentData = studentSnap.data() as any
         const billingContact = studentData?.billingContact || {}
         const billingAddress = studentData?.billingAddress || {}
 
@@ -196,18 +244,12 @@ export default function SubscribeTokenPage() {
         const phone = billingContact?.phone || studentData?.phone || studentData?.whatsapp || ''
 
         setStudentName(studentData?.name || '')
+        setAllowedPlans(plans)
 
-        const planDocs = await Promise.all(idList.map((id: string) => getDoc(doc(db, 'plans', id))))
-        const plans: PlanOption[] = planDocs
-          .map((snap, idx) => (snap.exists() ? { id: idList[idx], ...(snap.data() as any) } : null))
-          .filter(Boolean) as any
-        const filtered = plans.filter((p) => (p as any)?.active !== false && String((p as any).planSyncStatus || '') === 'synced')
-        setAllowedPlans(filtered)
-
-        const defaultId = filtered.find((p) => p.id === basePlanId)?.id || filtered[0]?.id || ''
+        const defaultId = plans.find((p: any) => p.id === basePlanId)?.id || plans[0]?.id || ''
         setSelectedPlanId(defaultId)
 
-        const selected = filtered.find((p) => p.id === defaultId)
+        const selected = plans.find((p: any) => p.id === defaultId)
         setPlanName(selected?.name || '')
         const allowed = Array.isArray(selected?.paymentMethods)
           ? (selected!.paymentMethods!.filter((m: any) => m === 'pix' || m === 'boleto' || m === 'credit_card')) as PaymentMethod[]
@@ -254,12 +296,58 @@ export default function SubscribeTokenPage() {
     setMethods(allowed)
   }, [allowedPlans, selectedPlanId])
 
+  const PUBLIC_KEY = process.env.NEXT_PUBLIC_PAGARME_PUBLIC_KEY as string | undefined
+
+  const tokenizeCardV5 = useCallback(async (params: { number: string; holder: string; exp: string; cvv: string }) => {
+    if (!PUBLIC_KEY) throw new Error('chave_publica_ausente')
+    const num = onlyDigits(params.number)
+    const cvv = onlyDigits(params.cvv)
+    const [mmRaw, yyRaw] = String(params.exp || '').split('/')
+    const exp_month = onlyDigits(mmRaw || '').padStart(2, '0').slice(0,2)
+    const yy = onlyDigits(yyRaw || '').slice(-2)
+    const yearPrefix = Number(yy) <= 79 ? '20' : '19'
+    const exp_year = (yearPrefix + yy)
+    const res = await fetch('https://api.pagar.me/core/v5/tokens', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Basic ' + btoa(PUBLIC_KEY + ':'),
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        type: 'card',
+        card: {
+          number: num,
+          holder_name: params.holder,
+          exp_month,
+          exp_year,
+          cvv
+        }
+      })
+    })
+    const json = await res.json().catch(() => ({} as any))
+    if (!res.ok) {
+      const msg = json?.message || json?.error || 'falha_tokenizar_cartao'
+      throw new Error(msg)
+    }
+    return json?.id || json?.token || ''
+  }, [PUBLIC_KEY])
+
 
   const onSubmit = async (values: FormValues) => {
     if (!token) return
     setSubmitError(undefined)
     try {
-      const payload = {
+      let cardToken: string | undefined
+      if (values.paymentMethod === 'credit_card') {
+        cardToken = await tokenizeCardV5({
+          number: String(values.cardNumber || ''),
+          holder: String(values.cardHolder || ''),
+          exp: String(values.cardExp || ''),
+          cvv: String(values.cardCvv || '')
+        })
+      }
+
+      const payload: any = {
         token,
         planId: selectedPlanId,
         paymentMethod: values.paymentMethod,
@@ -280,6 +368,7 @@ export default function SubscribeTokenPage() {
           country: values.billingCountry?.trim().toUpperCase()
         }
       }
+      if (cardToken) payload.cardToken = cardToken
 
       const res = await fetch('/api/subscribe/complete', {
         method: 'POST',
@@ -389,6 +478,58 @@ export default function SubscribeTokenPage() {
                       <Text>Nenhum método de pagamento disponível neste plano. Entre em contato com o suporte.</Text>
                     </Alert>
                   )}
+                {currentMethod === 'credit_card' && (
+                  <Stack spacing={4}>
+                    <Text fontWeight={600}>Dados do cartão</Text>
+                    <Controller
+                      name="cardNumber"
+                      control={control}
+                      render={({ field }) => (
+                        <FormControl isInvalid={!!errors as any && !!(errors as any).cardNumber} isRequired>
+                          <FormLabel>Número do cartão</FormLabel>
+                          <Input as={IMaskInput as any} mask="0000 0000 0000 0000 000" placeholder="0000 0000 0000 0000" value={field.value} onAccept={(val: string) => field.onChange(val)} />
+                          <FormErrorMessage>{(errors as any)?.cardNumber?.message as any}</FormErrorMessage>
+                        </FormControl>
+                      )}
+                    />
+                    <Controller
+                      name="cardHolder"
+                      control={control}
+                      render={({ field }) => (
+                        <FormControl isInvalid={!!(errors as any)?.cardHolder} isRequired>
+                          <FormLabel>Nome impresso no cartão</FormLabel>
+                          <Input placeholder="Nome do titular" {...field} />
+                          <FormErrorMessage>{(errors as any)?.cardHolder?.message as any}</FormErrorMessage>
+                        </FormControl>
+                      )}
+                    />
+                    <HStack spacing={4} align="flex-start">
+                      <Controller
+                        name="cardExp"
+                        control={control}
+                        render={({ field }) => (
+                          <FormControl isInvalid={!!(errors as any)?.cardExp} isRequired>
+                            <FormLabel>Validade (MM/AA)</FormLabel>
+                            <Input as={IMaskInput as any} mask="00/00" placeholder="MM/AA" value={field.value} onAccept={(val: string) => field.onChange(val)} />
+                            <FormErrorMessage>{(errors as any)?.cardExp?.message as any}</FormErrorMessage>
+                          </FormControl>
+                        )}
+                      />
+                      <Controller
+                        name="cardCvv"
+                        control={control}
+                        render={({ field }) => (
+                          <FormControl isInvalid={!!(errors as any)?.cardCvv} isRequired maxW="160px">
+                            <FormLabel>CVV</FormLabel>
+                            <Input as={IMaskInput as any} mask="0000" placeholder="CVV" value={field.value} onAccept={(val: string) => field.onChange(val)} />
+                            <FormErrorMessage>{(errors as any)?.cardCvv?.message as any}</FormErrorMessage>
+                          </FormControl>
+                        )}
+                      />
+                    </HStack>
+                  </Stack>
+                )}
+
                   {errors.paymentMethod && <Text color="red.500" fontSize="sm">{errors.paymentMethod.message}</Text>}
                 </Stack>
 
@@ -448,7 +589,17 @@ export default function SubscribeTokenPage() {
                     render={({ field }) => (
                       <FormControl isInvalid={!!errors.billingZipCode} isRequired>
                         <FormLabel>CEP</FormLabel>
-                        <Input as={IMaskInput as any} mask="00000-000" placeholder="00000-000" value={field.value} onAccept={(val: string) => field.onChange(val)} />
+                        <HStack>
+                          <Input
+                            as={IMaskInput as any}
+                            mask="00000-000"
+                            placeholder="00000-000"
+                            value={field.value}
+                            onAccept={(val: string) => field.onChange(val)}
+                            flex={1}
+                          />
+                          {loadingCep && <Spinner size="sm" />}
+                        </HStack>
                         <FormErrorMessage>{errors.billingZipCode?.message}</FormErrorMessage>
                       </FormControl>
                     )}

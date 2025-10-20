@@ -54,6 +54,8 @@ export type CreateSubscriptionArgs = {
   planId: string
   paymentMethod: 'credit_card'|'pix'|'boleto'
   idempotencyKey?: string
+  cardToken?: string
+  cardHash?: string
 }
 
 export type CreateSubscriptionResult = {
@@ -64,10 +66,18 @@ export type CreateSubscriptionResult = {
 export async function createSubscription(args: CreateSubscriptionArgs, env?: Partial<PagarmeEnv>): Promise<CreateSubscriptionResult> {
   const { apiKey } = cfg(env)
   if (!apiKey) throw new Error('pagarme_api_key_missing')
+  const mappedMethod = args.paymentMethod === 'pix' ? 'cash' : args.paymentMethod
   const payload: any = {
     plan_id: args.planId,
     customer_id: args.customerId,
-    payment_method: args.paymentMethod,
+    payment_method: mappedMethod,
+  }
+  if (args.paymentMethod === 'pix') {
+    payload.cash = { type: 'pix' }
+  }
+  if (mappedMethod === 'credit_card') {
+    if (args.cardToken) payload.card = { card_token: args.cardToken }
+    else if (args.cardHash) payload.card_hash = args.cardHash
   }
   const headersOverride = args.idempotencyKey ? { 'Idempotency-Key': args.idempotencyKey } : undefined
   const res = await pagarmeRequest<any>('POST', '/subscriptions', undefined, env, payload, headersOverride)
@@ -180,7 +190,14 @@ export type ReissuePixResult = {
 export async function reissuePix(args: ReissuePixArgs, env?: Partial<PagarmeEnv>): Promise<ReissuePixResult> {
   const { apiKey } = cfg(env)
   if (!apiKey) throw new Error('pagarme_api_key_missing')
-  throw new Error('not_implemented')
+  const body = { payment_method: 'cash', cash: { type: 'pix' } }
+  const res: any = await pagarmeRequest<any>('POST', `/invoices/${args.invoiceId}/charges`, { expand: 'last_transaction' }, env, body)
+  const chargeId = res?.id || res?.charge?.id
+  const tx = res?.last_transaction || res?.charge?.last_transaction
+  const qrCode = tx?.qr_code || tx?.pix?.qr_code || tx?.copy_paste || tx?.emv || tx?.emvqrcps
+  const qrCodeUrl = tx?.qr_code_url || tx?.pix?.qr_code_url || tx?.qr_code_image || tx?.qr_code_base64
+  const expiresAt = tx?.expires_at || tx?.pix?.expires_at
+  return { chargeId, qrCode, qrCodeUrl, expiresAt }
 }
 
 export type ReissueBoletoArgs = {
@@ -330,12 +347,21 @@ export async function getInvoice(args: { invoiceId: string }, env?: Partial<Paga
 
 export async function listChargesByInvoice(args: { invoiceId: string; page?: number; size?: number }, env?: Partial<PagarmeEnv>) {
   const { invoiceId, page = 1, size = 20 } = args
-  const res = await pagarmeRequest<any>('GET', `/charges`, { invoice_id: invoiceId, page, size }, env)
+  const res = await pagarmeRequest<any>('GET', `/charges`, { invoice_id: invoiceId, page, size, expand: 'last_transaction' }, env)
   if (Array.isArray(res)) return res as PagarmeCharge[]
   if (res && Array.isArray(res.data)) return res.data as PagarmeCharge[]
   return [] as PagarmeCharge[]
 }
 
+export async function getCharge(args: { chargeId: string }, env?: Partial<PagarmeEnv>) {
+  const { chargeId } = args
+  return pagarmeRequest<any>('GET', `/charges/${chargeId}`, { expand: 'last_transaction' }, env)
+}
+
+export async function getTransaction(args: { transactionId: string }, env?: Partial<PagarmeEnv>) {
+  const { transactionId } = args
+  return pagarmeRequest<any>('GET', `/transactions/${transactionId}`, undefined, env)
+}
 
 export async function listInvoicesBySubscription(args: { subscriptionId: string; page?: number; size?: number }, env?: Partial<PagarmeEnv>) {
   const { subscriptionId, page = 1, size = 20 } = args

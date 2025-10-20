@@ -25,7 +25,32 @@ export async function POST(req: NextRequest) {
       ? (data as any).allowedPlanIds
       : [String((data as any).planId)]
     const allowPlanChange = Boolean((data as any)?.allowPlanChange)
-    return NextResponse.json({ ok: true, valid: true, studentId: data.studentId, planId: data.planId, allowedPlanIds: allowed, allowPlanChange })
+
+    // Buscar dados do aluno
+    const studentId = String(data.studentId)
+    const studentSnap = await adminDb.collection('students').doc(studentId).get()
+    if (!studentSnap.exists) {
+      return NextResponse.json({ ok: false, valid: false, error: 'aluno_nao_encontrado' }, { status: 404 })
+    }
+    const studentData = studentSnap.data() as any
+
+    // Buscar dados dos planos
+    const planDocs = await Promise.all(allowed.map((id: string) => adminDb.collection('plans').doc(id).get()))
+    const plans = planDocs
+      .map((snap, idx) => (snap.exists ? { id: allowed[idx], ...(snap.data() as any) } : null))
+      .filter(Boolean)
+    const filteredPlans = plans.filter((p: any) => p?.active !== false && String(p.planSyncStatus || '') === 'synced')
+
+    return NextResponse.json({
+      ok: true,
+      valid: true,
+      studentId: data.studentId,
+      planId: data.planId,
+      allowedPlanIds: allowed,
+      allowPlanChange,
+      studentData,
+      plans: filteredPlans
+    })
   } catch (e: any) {
     const message = typeof e?.message === 'string' ? e.message : 'erro_generico'
     return NextResponse.json({ error: message }, { status: 500 })
