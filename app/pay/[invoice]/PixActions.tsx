@@ -3,8 +3,8 @@
 import { useState } from "react"
 
 export default function PixActions({ code }: { code?: string }) {
-  if (!code) return null
   const [copied, setCopied] = useState(false)
+  if (!code) return null
 
   async function handleCopy() {
     try {
