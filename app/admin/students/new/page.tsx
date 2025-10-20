@@ -4,6 +4,11 @@ import { Icon } from '@/components/Icon';
 
 import { db, storage } from '@/lib/firebase';
 import {
+  Accordion,
+  AccordionItem,
+  AccordionButton,
+  AccordionPanel,
+  AccordionIcon,
   Alert,
   AlertDescription,
   AlertIcon,
@@ -103,6 +108,9 @@ export default function NewStudentPage() {
   const selectedPlan = useMemo(() => plans.find((plan) => plan.id === activePlanIdValue), [plans, activePlanIdValue]);
   const selectedPlanMethods = selectedPlan?.paymentMethods?.map((method) => formatPaymentMethod(method)).join(' - ');
 
+  const jiuBeltValue = watch('jiuJitsuBelt');
+  const jiuDegreeValue = watch('jiuJitsuDegree');
+
   useEffect(() => {
     if (studentNameValue && !billingNameValue) {
       setValue('billingName', studentNameValue);
@@ -131,6 +139,15 @@ export default function NewStudentPage() {
       setValue('activePlanId', '', { shouldDirty: true, shouldValidate: true });
     }
   }, [plans, activePlanIdValue, setValue]);
+
+  useEffect(() => {
+    const deg = Number(String(jiuDegreeValue || '').trim() || '0');
+    const isBlackOrRed = jiuBeltValue === 'preta' || jiuBeltValue === 'vermelha';
+    if (!isBlackOrRed && deg > 4) {
+      setValue('jiuJitsuDegree', '4');
+    }
+  }, [jiuBeltValue, jiuDegreeValue, setValue]);
+
 
   const [video, setVideo] = useState<HTMLVideoElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -305,6 +322,34 @@ export default function NewStudentPage() {
         payload.paymentPreference = data.paymentPreference as StudentPaymentPreference;
       }
 
+      if (data.activities) {
+        payload.activities = {
+          funcional: Boolean(data.activities.funcional),
+          boxe: Boolean(data.activities.boxe),
+          mma: Boolean(data.activities.mma),
+          jiuJitsu: Boolean(data.activities.jiuJitsu),
+        };
+      }
+
+      if (data.jiuJitsuBelt) {
+        payload.jiuJitsuBelt = data.jiuJitsuBelt;
+      }
+
+      {
+        let degNum = Number(String((data as any).jiuJitsuDegree || '').trim() || '0');
+        if (!Number.isFinite(degNum)) degNum = 0;
+        if (degNum < 0) degNum = 0;
+        if (degNum > 10) degNum = 10;
+        {
+          const belt = String((data as any).jiuJitsuBelt || '');
+          const isBlackOrRed = belt === 'preta' || belt === 'vermelha';
+          if (!isBlackOrRed && degNum > 4) {
+            degNum = 4;
+          }
+        }
+        payload.jiuJitsuDegree = degNum;
+      }
+
       const created = await addDoc(collection(db, 'students'), payload);
 
       if (photoBlobs.length) {
@@ -365,7 +410,7 @@ export default function NewStudentPage() {
         <TabList>
           <Tab _selected={{ color: '#000', borderColor: '#bfbfbf', borderWidth: '1px', borderBottomColor: 'white' }}>Dados gerais</Tab>
           <Tab _selected={{ color: '#000', borderColor: '#bfbfbf', borderWidth: '1px', borderBottomColor: 'white' }}>Cobrança</Tab>
-          <Tab _selected={{ color: '#000', borderColor: '#bfbfbf', borderWidth: '1px', borderBottomColor: 'white' }}>Ficha t e9cnica</Tab>
+          <Tab _selected={{ color: '#000', borderColor: '#bfbfbf', borderWidth: '1px', borderBottomColor: 'white' }}>Ficha técnica</Tab>
           <Tab _selected={{ color: '#000', borderColor: '#bfbfbf', borderWidth: '1px', borderBottomColor: 'white' }}>Biometria facial</Tab>
         </TabList>
         <TabPanels>
@@ -601,6 +646,7 @@ export default function NewStudentPage() {
                     <Text fontSize="lg" fontWeight={700}>Ficha técnica</Text>
                   </HStack>
                 </VStack>
+
                 <HStack spacing={3} wrap="wrap">
                   <Controller name="weightKg" control={control} render={({ field }) => (
                     <FormControl>
@@ -641,10 +687,168 @@ export default function NewStudentPage() {
                     </FormControl>
                   )}/>
                 </HStack>
+                <VStack align="stretch" spacing={3}>
+                  <Text fontWeight={600}>Atividades praticadas</Text>
+                  <HStack spacing={4} wrap="wrap">
+                    <Controller
+                      name="activities.funcional"
+                      control={control}
+                      render={({ field }) => (
+                        <Checkbox
+                          isChecked={field.value}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                          sx={{
+                            '.chakra-checkbox__control': {
+                              bg: field.value ? 'black' : 'white',
+                              borderColor: 'black',
+                              _checked: {
+                                bg: 'black',
+                                borderColor: 'black',
+                                color: 'white'
+                              }
+                            }
+                          }}
+                        >
+                          Funcional
+                        </Checkbox>
+                      )}
+                    />
+                    <Controller
+                      name="activities.boxe"
+                      control={control}
+                      render={({ field }) => (
+                        <Checkbox
+                          isChecked={field.value}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                          sx={{
+                            '.chakra-checkbox__control': {
+                              bg: field.value ? 'black' : 'white',
+                              borderColor: 'black',
+                              _checked: {
+                                bg: 'black',
+                                borderColor: 'black',
+                                color: 'white'
+                              }
+                            }
+                          }}
+                        >
+                          Boxe
+                        </Checkbox>
+                      )}
+                    />
+                    <Controller
+                      name="activities.mma"
+                      control={control}
+                      render={({ field }) => (
+                        <Checkbox
+                          isChecked={field.value}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                          sx={{
+                            '.chakra-checkbox__control': {
+                              bg: field.value ? 'black' : 'white',
+                              borderColor: 'black',
+                              _checked: {
+                                bg: 'black',
+                                borderColor: 'black',
+                                color: 'white'
+                              }
+                            }
+                          }}
+                        >
+                          MMA
+                        </Checkbox>
+                      )}
+                    />
+                    <Controller
+                      name="activities.jiuJitsu"
+                      control={control}
+                      render={({ field }) => (
+                        <Checkbox
+                          isChecked={field.value}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                          sx={{
+                            '.chakra-checkbox__control': {
+                              bg: field.value ? 'black' : 'white',
+                              borderColor: 'black',
+                              _checked: {
+                                bg: 'black',
+                                borderColor: 'black',
+                                color: 'white'
+                              }
+                            }
+                          }}
+                        >
+                          Jiu Jitsu
+                        </Checkbox>
+                      )}
+                    />
+                  </HStack>
+                </VStack>
+
+                {watch('activities.jiuJitsu') && (
+                  <Accordion allowToggle maxW="900px">
+                    <AccordionItem borderTop="none">
+                      <AccordionButton px={0}>
+                        <Box flex="1" textAlign="left" fontWeight={600}>
+                          Especificações
+                        </Box>
+                        <AccordionIcon />
+                      </AccordionButton>
+                      <AccordionPanel>
+                        <HStack spacing={4} align="stretch">
+                          <Controller
+                            name="jiuJitsuBelt"
+                            control={control}
+                            render={({ field }) => (
+                              <FormControl maxW="200px">
+                                <FormLabel>Faixa de Jiu-Jitsu</FormLabel>
+                                <Select placeholder="Selecione a faixa" {...field}>
+                                  <option value="branca">Branca</option>
+                                  <option value="cinza">Cinza</option>
+                                  <option value="amarela">Amarela</option>
+                                  <option value="laranja">Laranja</option>
+                                  <option value="verde">Verde</option>
+                                  <option value="azul">Azul</option>
+                                  <option value="roxa">Roxa</option>
+                                  <option value="marrom">Marrom</option>
+                                  <option value="preta">Preta</option>
+                                  <option value="vermelha">Vermelha</option>
+                                </Select>
+                              </FormControl>
+                            )}
+                          />
+
+                          <Controller
+                            name="jiuJitsuDegree"
+                            control={control}
+                            render={({ field }) => (
+                              <FormControl maxW="200px">
+                                <FormLabel>Grau</FormLabel>
+                                <Select placeholder="Selecione o grau" {...field}>
+                                  <option value="0">Sem grau</option>
+                                  {Array.from({ length: 10 }).map((_, idx) => {
+                                    const n = idx + 1;
+                                    const disabled = n >= 5 && !(jiuBeltValue === 'preta' || jiuBeltValue === 'vermelha');
+                                    return (
+                                      <option key={n} value={String(n)} disabled={disabled}>
+                                        {`${n}° Grau`}
+                                      </option>
+                                    );
+                                  })}
+                                </Select>
+                              </FormControl>
+                            )}
+                          />
+                        </HStack>
+                      </AccordionPanel>
+                    </AccordionItem>
+                  </Accordion>
+                )}
+
                 <Controller name="techNotes" control={control} render={({ field }) => (
                   <FormControl>
-                    <FormLabel>Histórico/observações</FormLabel>
-                    <Textarea placeholder="Histórico/observações" {...field} />
+                    <FormLabel>Observações</FormLabel>
+                    <Textarea placeholder="Anote suas observações aqui" {...field} />
                   </FormControl>
                 )}/>
               </VStack>

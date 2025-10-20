@@ -102,6 +102,25 @@ export const studentFormSchema = yup.object({
   weightKg: yup.string().optional(),
   heightCm: yup.string().optional(),
   techNotes: yup.string().optional(),
+  activities: yup.object({
+    funcional: yup.boolean().default(false),
+    boxe: yup.boolean().default(false),
+    mma: yup.boolean().default(false),
+    jiuJitsu: yup.boolean().default(false),
+  }).optional(),
+  jiuJitsuBelt: yup.string().optional(),
+  jiuJitsuDegree: yup.string().optional().test('jj-degree-rule', 'Grau invalido para a faixa selecionada', function (value) {
+    const p = this.parent as any;
+    const jiu = p?.activities?.jiuJitsu;
+    if (!jiu) return true;
+    const belt = String(p?.jiuJitsuBelt || '');
+    const n = Number(String(value || '0').trim() || '0');
+    if (!Number.isFinite(n)) return false;
+    if (n < 0 || n > 10) return false;
+    const isBlackOrRed = belt === 'preta' || belt === 'vermelha';
+    if (!isBlackOrRed && n > 4) return false;
+    return true;
+  }),
   billingDocument: yup
     .string()
     .required("Documento obrigatorio")
@@ -159,6 +178,14 @@ export const emptyStudentFormValues: StudentFormData = {
   weightKg: "",
   heightCm: "",
   techNotes: "",
+  activities: {
+    funcional: false,
+    boxe: false,
+    mma: false,
+    jiuJitsu: false,
+  },
+  jiuJitsuBelt: "",
+  jiuJitsuDegree: "",
   billingDocument: "",
   billingName: "",
   billingEmail: "",
@@ -232,6 +259,20 @@ export function buildStudentFormValues(student?: Partial<Student> | null): Build
   values.weightKg = student.weightKg !== undefined && student.weightKg !== null ? String(student.weightKg) : "";
   values.heightCm = student.heightCm !== undefined && student.heightCm !== null ? String(student.heightCm) : "";
   values.techNotes = student.techNotes ? String(student.techNotes) : "";
+
+  if (student.activities) {
+    values.activities = {
+      funcional: Boolean(student.activities.funcional),
+      boxe: Boolean(student.activities.boxe),
+      mma: Boolean(student.activities.mma),
+      jiuJitsu: Boolean(student.activities.jiuJitsu),
+    };
+  }
+
+  values.jiuJitsuBelt = student.jiuJitsuBelt ? String(student.jiuJitsuBelt) : "";
+  values.jiuJitsuDegree = (student.jiuJitsuDegree !== undefined && student.jiuJitsuDegree !== null)
+    ? String(student.jiuJitsuDegree)
+    : "";
 
   const billingContact = student.billingContact as any;
   const billingAddress = student.billingAddress as any;

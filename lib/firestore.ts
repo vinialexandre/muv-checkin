@@ -42,6 +42,14 @@ export type Student = {
   weightKg?: number;
   heightCm?: number;
   techNotes?: string;
+  activities?: {
+    funcional?: boolean;
+    boxe?: boolean;
+    mma?: boolean;
+    jiuJitsu?: boolean;
+  };
+  jiuJitsuBelt?: string;
+  jiuJitsuDegree?: number;
   billingContact?: StudentBillingContact;
   billingAddress?: StudentBillingAddress;
   billingConsentAcceptedAt?: Timestamp;
