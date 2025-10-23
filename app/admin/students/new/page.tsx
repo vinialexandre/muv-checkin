@@ -29,7 +29,7 @@ import {
   FormLabel,
   HStack,
   Image,
-  Input,
+  Input, InputGroup, InputRightElement,
   Select,
   SimpleGrid,
   Spinner,
@@ -52,6 +52,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { Controller, useForm } from 'react-hook-form';
 import { IMaskInput } from 'react-imask';
+
+import { Eye, EyeOff } from 'lucide-react';
 
 import VideoCanvas from '@/components/VideoCanvas';
 import LivenessHint from '@/components/LivenessHint';
@@ -147,6 +149,9 @@ export default function NewStudentPage() {
       setValue('jiuJitsuDegree', '4');
     }
   }, [jiuBeltValue, jiuDegreeValue, setValue]);
+
+  const [showPwd, setShowPwd] = useState(false);
+  const [showPwd2, setShowPwd2] = useState(false);
 
 
   const [video, setVideo] = useState<HTMLVideoElement | null>(null);
@@ -274,6 +279,13 @@ export default function NewStudentPage() {
       };
 
       if (data.email) payload.email = data.email;
+
+      const pwd = String((data as any).password ?? '').trim();
+      if (pwd && !data.email) {
+        toast({ title: 'Informe um email para criar login', status: 'warning' });
+        return;
+      }
+
       if (data.birthDate) payload.birthDate = data.birthDate;
       if (data.guardianName) payload.guardianName = data.guardianName;
       if (data.guardianPhone) payload.guardianPhone = data.guardianPhone;
@@ -350,7 +362,22 @@ export default function NewStudentPage() {
         payload.jiuJitsuDegree = degNum;
       }
 
+
+
       const created = await addDoc(collection(db, 'students'), payload);
+
+
+      if (pwd) {
+        const res = await fetch('/api/students/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: data.email, password: pwd, name: data.name, studentId: created.id })
+        });
+        if (!res.ok) {
+          const b = await res.json().catch(() => ({}));
+          throw new Error(b?.error || `Erro ${res.status}`);
+        }
+      }
 
       if (photoBlobs.length) {
         const photos: string[] = [];
@@ -362,6 +389,7 @@ export default function NewStudentPage() {
           const url = await getDownloadURL(storageRef);
           photos.push(url);
         }
+
         const updateData: Record<string, any> = { photos };
         if (samples.length) {
           updateData.descriptors = samples.map((v) => ({ v }));
@@ -451,11 +479,42 @@ export default function NewStudentPage() {
                         <Controller name="whatsapp" control={control} render={({ field, fieldState }) => (
                           <FormControl isInvalid={!!fieldState.error} isRequired={!isMinorNow}>
                             <FormLabel>WhatsApp</FormLabel>
-                            <Input as={IMaskInput as any} mask="(00) 00000-0000" placeholder="WhatsApp" value={field.value as any} onAccept={(val:any)=>field.onChange(val)} />
+                            <Input as={IMaskInput as any} mask="(00) 00000-0000" placeholder="WhatsApp" value={field.value as any} onAccept={(val:any)=>field.onChange(val)} inputMode="tel" autoComplete="tel" type="tel" />
                             <FormErrorMessage>{fieldState.error?.message as any}</FormErrorMessage>
                           </FormControl>
                         )}/>
                       </HStack>
+                      <HStack spacing={3} wrap="wrap">
+                        <Controller name="password" control={control} render={({ field, fieldState }) => (
+                          <FormControl isInvalid={!!fieldState.error}>
+                            <FormLabel>Senha</FormLabel>
+                            <InputGroup>
+                              <Input type={showPwd ? 'text' : 'password'} placeholder="Senha" {...field} />
+                              <InputRightElement>
+                                <Button variant="ghost" size="sm" onClick={() => setShowPwd((s) => !s)}>
+                                  {showPwd ? <Eye size={16} /> : <EyeOff size={16} />}
+                                </Button>
+                              </InputRightElement>
+                            </InputGroup>
+                            <FormErrorMessage>{fieldState.error?.message as any}</FormErrorMessage>
+                          </FormControl>
+                        )}/>
+                        <Controller name="confirmPassword" control={control} render={({ field, fieldState }) => (
+                          <FormControl isInvalid={!!fieldState.error}>
+                            <FormLabel>Confirmar senha</FormLabel>
+                            <InputGroup>
+                              <Input type={showPwd2 ? 'text' : 'password'} placeholder="Confirmar senha" {...field} />
+                              <InputRightElement>
+                                <Button variant="ghost" size="sm" onClick={() => setShowPwd2((s) => !s)}>
+                                  {showPwd2 ? <Eye size={16} /> : <EyeOff size={16} />}
+                                </Button>
+                              </InputRightElement>
+                            </InputGroup>
+                            <FormErrorMessage>{fieldState.error?.message as any}</FormErrorMessage>
+                          </FormControl>
+                        )}/>
+                      </HStack>
+
                       <Controller
                         name="active"
                         control={control}

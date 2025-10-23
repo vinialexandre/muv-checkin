@@ -31,6 +31,8 @@ export type Student = {
   whatsapp?: string;
   email?: string;
   birthDate?: string;
+  password?: string;
+
   guardianName?: string;
   guardianPhone?: string;
   guardianEmail?: string;

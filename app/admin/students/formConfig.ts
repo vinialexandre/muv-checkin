@@ -76,6 +76,26 @@ export const studentFormSchema = yup.object({
       const bd = (this.parent as { birthDate?: string }).birthDate;
       return isMinor(bd) ? true : !!value;
     }),
+  password: yup
+    .string()
+    .transform((v) => {
+      const s = String(v || "").trim();
+      return s === "" ? undefined : s;
+    })
+    .optional(),
+  confirmPassword: yup
+    .string()
+    .transform((v) => {
+      const s = String(v || "").trim();
+      return s === "" ? undefined : s;
+    })
+    .test("pwd-match", "Senhas nao conferem", function (value) {
+      const pwd = (this.parent as any).password;
+      if (!pwd && !value) return true;
+      return value === pwd;
+    })
+    .optional(),
+
   guardianName: yup
     .string()
     .test("guardian-name", "Nome do responsavel obrigatorio", function (value) {
@@ -173,6 +193,9 @@ export const emptyStudentFormValues: StudentFormData = {
   guardianName: "",
   guardianPhone: "",
   guardianEmail: "",
+  password: "",
+  confirmPassword: "",
+
   active: true,
   activePlanId: "",
   weightKg: "",
@@ -259,6 +282,9 @@ export function buildStudentFormValues(student?: Partial<Student> | null): Build
   values.weightKg = student.weightKg !== undefined && student.weightKg !== null ? String(student.weightKg) : "";
   values.heightCm = student.heightCm !== undefined && student.heightCm !== null ? String(student.heightCm) : "";
   values.techNotes = student.techNotes ? String(student.techNotes) : "";
+
+  values.password = student.password ? String(student.password) : "";
+  values.confirmPassword = values.password;
 
   if (student.activities) {
     values.activities = {
