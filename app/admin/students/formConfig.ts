@@ -23,7 +23,7 @@ export function isMinor(iso?: string) {
   return age < 18;
 }
 
-const PAYMENT_METHODS: StudentPaymentPreference[] = ["credit_card", "pix", "boleto"];
+const PAYMENT_METHODS: StudentPaymentPreference[] = ["credit_card", "pix"];
 
 function formatCpfDigits(digits: string) {
   const clean = onlyDigits(digits).slice(0, 11);
@@ -180,7 +180,6 @@ export const studentFormSchema = yup.object({
     .uppercase()
     .min(2, "Pais obrigatorio")
     .required("Pais obrigatorio"),
-  paymentPreference: yup.string().oneOf(["", "credit_card", "pix", "boleto"]).optional(),
 });
 
 export type StudentFormData = yup.InferType<typeof studentFormSchema>;
@@ -221,7 +220,6 @@ export const emptyStudentFormValues: StudentFormData = {
   billingCity: "",
   billingState: "",
   billingCountry: "BR",
-  paymentPreference: "",
 };
 
 type BuildDefaultsResult = {
@@ -231,10 +229,6 @@ type BuildDefaultsResult = {
   consentVersion: string | null;
 };
 
-function normalizePaymentPreference(pref?: StudentPaymentPreference | string | null): StudentPaymentPreference | "" {
-  if (!pref) return "";
-  return PAYMENT_METHODS.includes(pref as StudentPaymentPreference) ? (pref as StudentPaymentPreference) : "";
-}
 
 function inferPhoneDigits(billingContact: any) {
   if (!billingContact) return "";
@@ -322,8 +316,6 @@ export function buildStudentFormValues(student?: Partial<Student> | null): Build
   values.billingCity = billingAddress?.city ? String(billingAddress.city) : "";
   values.billingState = billingAddress?.state ? String(billingAddress.state).toUpperCase() : "";
   values.billingCountry = billingAddress?.country ? String(billingAddress.country).toUpperCase() : "BR";
-
-  values.paymentPreference = normalizePaymentPreference(student.paymentPreference);
 
   const consentTs = student.billingConsentAcceptedAt;
   let consentDate: Date | null = null;
