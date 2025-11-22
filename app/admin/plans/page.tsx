@@ -10,16 +10,6 @@ import PageCard from '@/components/PageCard';
 import { Icon } from '@/components/Icon';
 import { Plan, PlanBillingInterval, PlanPaymentMethod, PlanSyncStatus } from '@/lib/firestore';
 
-function labelPeriod(p?: 'monthly'|'quarterly'|'semiannual'|'annual'): string {
-  switch(p){
-    case 'monthly': return 'Mensal';
-    case 'quarterly': return 'Trimestral';
-    case 'semiannual': return 'Semestral';
-    case 'annual': return 'Anual';
-    default: return '-';
-  }
-}
-
 function labelInterval(interval?: PlanBillingInterval, count?: number, cycles?: number) {
   if (!interval || !count) return '-';
   const intervalLabel = {
@@ -189,7 +179,6 @@ export default function PlansPage() {
                   <Box key={p.id} borderWidth="1px" borderRadius="md" p={4}>
                     <VStack align="stretch" spacing={2}>
                       <Text fontWeight={700}>{p.name}</Text>
-                      <Text fontSize="sm" color="gray.600">Etiqueta: {labelPeriod(p.period as any)}</Text>
                       <Text fontSize="sm" color="gray.600">Cobrança: {labelInterval(p.billingInterval as PlanBillingInterval | undefined, p.billingIntervalCount as number | undefined, p.billingCycles as number | undefined)}</Text>
                       <Text fontSize="sm" color="gray.600">Métodos: {labelPaymentMethods(p.paymentMethods as PlanPaymentMethod[] | undefined)}</Text>
                       <Text fontSize="sm" color="gray.600">Preço: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.price || 0)}</Text>
@@ -217,7 +206,6 @@ export default function PlansPage() {
                   <Tr>
                     <Th>Nome</Th>
                     <Th>Preço</Th>
-                    <Th>Etiqueta</Th>
                     <Th>Cobrança</Th>
                     <Th>Métodos</Th>
                     <Th>Status</Th>
@@ -232,14 +220,13 @@ export default function PlansPage() {
                       <Tr key={p.id}>
                         <Td>{p.name}</Td>
                         <Td>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.price || 0)}</Td>
-                        <Td>{labelPeriod(p.period as any)}</Td>
                         <Td>{labelInterval(p.billingInterval as PlanBillingInterval | undefined, p.billingIntervalCount as number | undefined, p.billingCycles as number | undefined)}</Td>
                         <Td>{labelPaymentMethods(p.paymentMethods as PlanPaymentMethod[] | undefined)}</Td>
                         <Td><Badge colorScheme={(p.active===false)?'red':'green'}>{(p.active===false)?'Inativo':'Ativo'}</Badge></Td>
                         <Td><Badge colorScheme={sync.scheme}>{sync.label}</Badge></Td>
                         <Td textAlign="right">
                           <HStack justify="flex-end" spacing={2}>
-                            <Button size="sm" variant="outline" leftIcon={<Icon name='refresh' size={16} />} onClick={() => syncPlan(p.id)} isLoading={syncingId === p.id} isDisabled={!!syncingId && syncingId !== p.id}>Sync</Button>
+                            <Button size="sm" variant="outline" leftIcon={<Icon name='refresh' size={16} />} onClick={() => syncPlan(p.id)} isLoading={syncingId === p.id} isDisabled={!!syncingId && syncingId !== p.id}>Pagar.me</Button>
                             <Button size="sm" leftIcon={<Icon name='edit' size={16} />} as={Link} href={`/admin/plans/${p.id}/edit` as any}>Editar</Button>
                             <Button size="sm" variant="outline" leftIcon={<Icon name='trash' size={16} />} colorScheme='red' onClick={() => setDeleteId(p.id)}>Excluir</Button>
                           </HStack>

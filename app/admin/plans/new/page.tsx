@@ -27,9 +27,6 @@ const paymentMethodOptions: { value: PlanPaymentMethod; label: string }[] = [
 const schema = yup.object({
   name: yup.string().trim().min(2,'Nome muito curto').required('Nome obrigatório'),
   priceStr: yup.string().required('Valor obrigatório').test('valid','Valor inválido', (val)=> !isNaN(parseBRL(val||'')) && parseBRL(val||'')>=0),
-  period: yup.mixed<'monthly'|'quarterly'|'semiannual'|'annual'>()
-    .oneOf(['monthly','quarterly','semiannual','annual'])
-    .required('Período obrigatório'),
   billingInterval: yup.mixed<PlanBillingInterval>()
     .oneOf(['day','week','month','year'])
     .required('Intervalo obrigatório'),
@@ -59,7 +56,6 @@ export default function NewPlanPage() {
     defaultValues:{
       name:'',
       priceStr:'',
-      period:'monthly',
       billingInterval:'month',
       billingIntervalCount:'1',
       paymentMethods:['credit_card'],
@@ -76,7 +72,6 @@ export default function NewPlanPage() {
     const payload: Record<string, any> = {
       name: data.name,
       price,
-      period: data.period,
       active: !!data.active,
       billingInterval: data.billingInterval,
       billingIntervalCount,
@@ -118,18 +113,6 @@ export default function NewPlanPage() {
                 <FormErrorMessage>{errors.priceStr?.message as any}</FormErrorMessage>
               </FormControl>
             )}/>
-            <Controller name="period" control={control} render={({ field }) => (
-              <FormControl isInvalid={!!errors.period} isRequired maxW="220px">
-                <FormLabel>Etiqueta do período</FormLabel>
-                <Select {...field}>
-                  <option value="monthly">Mensal</option>
-                  <option value="quarterly">Trimestral</option>
-                  <option value="semiannual">Semestral</option>
-                  <option value="annual">Anual</option>
-                </Select>
-                <FormErrorMessage>{(errors as any).period?.message as any}</FormErrorMessage>
-              </FormControl>
-            )}/>
             <Controller name="active" control={control} render={({ field }) => (
               <FormControl isRequired maxW="140px">
                 <FormLabel>Status</FormLabel>
@@ -137,9 +120,9 @@ export default function NewPlanPage() {
               </FormControl>
             )}/>
           </HStack>
-          <HStack spacing={4} wrap="wrap">
+          <HStack spacing={4} align="flex-start" mt={4}>
             <Controller name="billingInterval" control={control} render={({ field, fieldState }) => (
-              <FormControl isInvalid={!!fieldState.error} isRequired maxW="220px">
+              <FormControl isInvalid={!!fieldState.error} isRequired flex="1" maxW="220px">
                 <FormLabel>Intervalo de cobrança</FormLabel>
                 <Select placeholder="Selecione" {...field}>
                   <option value="day">Diário</option>
@@ -151,7 +134,7 @@ export default function NewPlanPage() {
               </FormControl>
             )}/>
             <Controller name="billingIntervalCount" control={control} render={({ field, fieldState }) => (
-              <FormControl isInvalid={!!fieldState.error} isRequired maxW="220px">
+              <FormControl isInvalid={!!fieldState.error} isRequired flex="1" maxW="220px">
                 <FormLabel>Repetir a cada</FormLabel>
                 <Input type="number" min={1} max={12} {...field} />
                 <FormHelperText>P. ex.: 1 = a cada mês.</FormHelperText>
@@ -159,7 +142,7 @@ export default function NewPlanPage() {
               </FormControl>
             )}/>
             <Controller name="billingCycles" control={control} render={({ field, fieldState }) => (
-              <FormControl isInvalid={!!fieldState.error} maxW="220px">
+              <FormControl isInvalid={!!fieldState.error} flex="1" maxW="220px">
                 <FormLabel>Ciclos máximos</FormLabel>
                 <Input type="number" min={1} max={120} placeholder="Indefinido" {...field} />
                 <FormHelperText>Deixe em branco para recorrência contínua.</FormHelperText>
@@ -173,7 +156,7 @@ export default function NewPlanPage() {
               <CheckboxGroup value={(field.value || []) as string[]} onChange={(vals)=>field.onChange(vals as PlanPaymentMethod[])}>
                 <Stack direction={{ base: 'column', md: 'row' }} spacing={4}>
                   {paymentMethodOptions.map((opt) => (
-                    <Checkbox key={opt.value} value={opt.value}>{opt.label}</Checkbox>
+                    <Checkbox key={opt.value} value={opt.value} isDisabled={opt.value === 'boleto'}>{opt.label}</Checkbox>
                   ))}
                 </Stack>
               </CheckboxGroup>

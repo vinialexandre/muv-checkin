@@ -12,7 +12,6 @@ import {
   AlertTitle,
   Box,
   Button,
-  Container,
   Divider,
   FormControl,
   FormErrorMessage,
@@ -27,9 +26,11 @@ import {
   Text,
   useToast,
   Select,
-  VStack
+  VStack,
+  SimpleGrid
 } from '@chakra-ui/react'
 import { IMaskInput } from 'react-imask'
+import { Icon } from '@/components/Icon'
 
 type CepResponse = {
   cep: string
@@ -394,18 +395,18 @@ export default function SubscribeTokenPage() {
 
   if (loading) {
     return (
-      <Container maxW="lg" py={12}>
-        <Stack spacing={6} align="center">
+      <Box px={{ base: 4, md: 6, lg: 8 }} py={12}>
+        <Stack spacing={4} align="center">
           <Spinner size="xl" />
-          <Text fontSize="lg" color="gray.600">Carregando convite...</Text>
+          <Text fontSize="md" color="gray.600">Carregando convite...</Text>
         </Stack>
-      </Container>
+      </Box>
     )
   }
 
   if (inviteError) {
     return (
-      <Container maxW="lg" py={12}>
+      <Box px={{ base: 4, md: 6, lg: 8 }} py={12}>
         <Alert status="error" borderRadius="md">
           <AlertIcon />
           <Stack spacing={1}>
@@ -413,301 +414,294 @@ export default function SubscribeTokenPage() {
             <AlertDescription>{inviteError}</AlertDescription>
           </Stack>
         </Alert>
-      </Container>
+      </Box>
     )
   }
 
   const disableSubmit = !methods.length || !currentMethod
 
   return (
-    <Container maxW="lg" py={{ base: 8, md: 12 }}>
-      <VStack align="stretch" spacing={6}>
+    <Box px={{ base: 4, md: 6, lg: 8 }} py={{ base: 4, md: 6 }} minH="100vh">
+      <VStack align="stretch" spacing={4} maxW="100%" mx="auto">
         <Stack spacing={1}>
-          <Heading size="lg">Assinatura</Heading>
-          <Text color="gray.600">Confirme os dados de cobrança para concluir a assinatura.</Text>
+          <Heading size="lg">Confirmar assinatura</Heading>
+          <Text color="gray.600" fontSize="sm" display={{ base: 'none', md: 'block' }}>Complete os dados para finalizar</Text>
         </Stack>
 
-        <Box borderWidth="1px" borderRadius="lg" p={{ base: 6, md: 8 }} boxShadow="sm" bg="white">
-          <VStack align="stretch" spacing={6}>
+        <Box bg="white" borderWidth="1px" borderRadius="lg" p={4} boxShadow="sm">
+          <Stack spacing={4} direction={{ base: 'column', md: 'row' }} align={{ md: 'start' }}>
             <Stack spacing={1}>
-              <Text fontWeight={600}>Aluno</Text>
-              <Text color="gray.700">{studentName || 'Aluno'}</Text>
+              <Text fontSize="xs" color="gray.600" textTransform="uppercase" fontWeight={600}>Nome</Text>
+              <Text fontSize="md" fontWeight={600}>{studentName || 'Aluno'}</Text>
             </Stack>
-            <Stack spacing={1}>
-                {allowedPlans.length > 1 && (
-                  <Stack spacing={3}>
-                    <Text fontWeight={600}>Plano</Text>
-                    <FormControl>
-                      <Select value={selectedPlanId} onChange={(e)=>setSelectedPlanId(e.target.value)}>
-                        {allowedPlans.map((p)=> (
-                          <option key={p.id} value={p.id}>{p.name}</option>
+            <Divider display={{ base: 'block', md: 'none' }} />
+            <Divider orientation="vertical" h="50px" display={{ base: 'none', md: 'block' }} />
+            {allowedPlans.length > 1 ? (
+              <Stack spacing={1}>
+                <Text fontSize="xs" color="gray.600" textTransform="uppercase" fontWeight={600}>Plano</Text>
+                <Select value={selectedPlanId} onChange={(e)=>setSelectedPlanId(e.target.value)} size="sm">
+                  {allowedPlans.map((p)=> (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </Select>
+              </Stack>
+            ) : (
+              <Stack spacing={1}>
+                <Text fontSize="xs" color="gray.600" textTransform="uppercase" fontWeight={600}>Plano</Text>
+                <Text fontSize="md" fontWeight={600}>{planName || 'Plano'}</Text>
+              </Stack>
+            )}
+          </Stack>
+        </Box>
+
+        <Box as="form" onSubmit={handleSubmit(onSubmit as any)} borderWidth="1px" borderRadius="lg" p={6} boxShadow="sm" bg="white">
+          <SimpleGrid columns={{ base: 1, lg: 3 }} spacing={6}>
+            <VStack align="stretch" spacing={4}>
+              <HStack spacing={2}>
+                <Icon name="creditCard" size={16} />
+                <Text fontSize="sm" color="gray.600" textTransform="uppercase" fontWeight={700}>Pagamento</Text>
+              </HStack>
+              {methods.length ? (
+                <Controller
+                  name="paymentMethod"
+                  control={control}
+                  render={({ field }) => (
+                    <RadioGroup value={field.value} onChange={field.onChange}>
+                      <Stack spacing={3}>
+                        {methods.map((method) => (
+                          <Radio key={method} value={method}>
+                            {method === 'pix' ? 'Pix' : method === 'boleto' ? 'Boleto' : 'Cartão de crédito'}
+                          </Radio>
                         ))}
-                      </Select>
-                    </FormControl>
-                  </Stack>
-                )}
-
-              <Text fontWeight={600}>Plano</Text>
-              <Text color="gray.700">{planName || 'Plano selecionado'}</Text>
-            </Stack>
-            <Divider />
-
-            <form onSubmit={handleSubmit(onSubmit as any)}>
-              <VStack align="stretch" spacing={5}>
-                <Stack spacing={3}>
-                  <Text fontWeight={600}>Método de pagamento</Text>
-                  {methods.length ? (
-                    <Controller
-                      name="paymentMethod"
-                      control={control}
-                      render={({ field }) => (
-                        <RadioGroup value={field.value} onChange={field.onChange}>
-                          <HStack spacing={4} wrap="wrap">
-                            {methods.map((method) => (
-                              <Radio key={method} value={method}>
-                                {method === 'pix' ? 'Pix' : method === 'boleto' ? 'Boleto' : 'Cartão de crédito'}
-                              </Radio>
-                            ))}
-                          </HStack>
-                        </RadioGroup>
-                      )}
-                    />
-                  ) : (
-                    <Alert status="warning" borderRadius="md">
-                      <AlertIcon />
-                      <Text>Nenhum método de pagamento disponível neste plano. Entre em contato com o suporte.</Text>
-                    </Alert>
+                      </Stack>
+                    </RadioGroup>
                   )}
-                {currentMethod === 'credit_card' && (
-                  <Stack spacing={4}>
-                    <Text fontWeight={600}>Dados do cartão</Text>
+                />
+              ) : (
+                <Alert status="warning" size="sm">
+                  <AlertIcon />
+                  <Text fontSize="xs">Nenhum método disponível</Text>
+                </Alert>
+              )}
+              {errors.paymentMethod && <Text color="red.500" fontSize="xs">{errors.paymentMethod.message}</Text>}
+
+              {currentMethod === 'credit_card' && (
+                <VStack align="stretch" spacing={3} pt={2}>
+                  <Controller
+                    name="cardNumber"
+                    control={control}
+                    render={({ field }) => (
+                      <FormControl isInvalid={!!errors as any && !!(errors as any).cardNumber} isRequired>
+                        <FormLabel fontSize="sm">Número do cartão</FormLabel>
+                        <Input size="md" as={IMaskInput as any} mask="0000 0000 0000 0000 000" placeholder="0000 0000 0000 0000" value={field.value} onAccept={(val: string) => field.onChange(val)} />
+                        <FormErrorMessage fontSize="xs">{(errors as any)?.cardNumber?.message as any}</FormErrorMessage>
+                      </FormControl>
+                    )}
+                  />
+                  <Controller
+                    name="cardHolder"
+                    control={control}
+                    render={({ field }) => (
+                      <FormControl isInvalid={!!(errors as any)?.cardHolder} isRequired>
+                        <FormLabel fontSize="sm">Nome no cartão</FormLabel>
+                        <Input size="md" placeholder="Nome do titular" {...field} />
+                        <FormErrorMessage fontSize="xs">{(errors as any)?.cardHolder?.message as any}</FormErrorMessage>
+                      </FormControl>
+                    )}
+                  />
+                  <HStack spacing={3}>
                     <Controller
-                      name="cardNumber"
+                      name="cardExp"
                       control={control}
                       render={({ field }) => (
-                        <FormControl isInvalid={!!errors as any && !!(errors as any).cardNumber} isRequired>
-                          <FormLabel>Número do cartão</FormLabel>
-                          <Input as={IMaskInput as any} mask="0000 0000 0000 0000 000" placeholder="0000 0000 0000 0000" value={field.value} onAccept={(val: string) => field.onChange(val)} />
-                          <FormErrorMessage>{(errors as any)?.cardNumber?.message as any}</FormErrorMessage>
+                        <FormControl isInvalid={!!(errors as any)?.cardExp} isRequired>
+                          <FormLabel fontSize="sm">Validade</FormLabel>
+                          <Input size="md" as={IMaskInput as any} mask="00/00" placeholder="MM/AA" value={field.value} onAccept={(val: string) => field.onChange(val)} />
+                          <FormErrorMessage fontSize="xs">{(errors as any)?.cardExp?.message as any}</FormErrorMessage>
                         </FormControl>
                       )}
                     />
                     <Controller
-                      name="cardHolder"
+                      name="cardCvv"
                       control={control}
                       render={({ field }) => (
-                        <FormControl isInvalid={!!(errors as any)?.cardHolder} isRequired>
-                          <FormLabel>Nome impresso no cartão</FormLabel>
-                          <Input placeholder="Nome do titular" {...field} />
-                          <FormErrorMessage>{(errors as any)?.cardHolder?.message as any}</FormErrorMessage>
-                        </FormControl>
-                      )}
-                    />
-                    <HStack spacing={4} align="flex-start">
-                      <Controller
-                        name="cardExp"
-                        control={control}
-                        render={({ field }) => (
-                          <FormControl isInvalid={!!(errors as any)?.cardExp} isRequired>
-                            <FormLabel>Validade (MM/AA)</FormLabel>
-                            <Input as={IMaskInput as any} mask="00/00" placeholder="MM/AA" value={field.value} onAccept={(val: string) => field.onChange(val)} />
-                            <FormErrorMessage>{(errors as any)?.cardExp?.message as any}</FormErrorMessage>
-                          </FormControl>
-                        )}
-                      />
-                      <Controller
-                        name="cardCvv"
-                        control={control}
-                        render={({ field }) => (
-                          <FormControl isInvalid={!!(errors as any)?.cardCvv} isRequired maxW="160px">
-                            <FormLabel>CVV</FormLabel>
-                            <Input as={IMaskInput as any} mask="0000" placeholder="CVV" value={field.value} onAccept={(val: string) => field.onChange(val)} />
-                            <FormErrorMessage>{(errors as any)?.cardCvv?.message as any}</FormErrorMessage>
-                          </FormControl>
-                        )}
-                      />
-                    </HStack>
-                  </Stack>
-                )}
-
-                  {errors.paymentMethod && <Text color="red.500" fontSize="sm">{errors.paymentMethod.message}</Text>}
-                </Stack>
-
-                <Stack spacing={4}>
-                  <Text fontWeight={600}>Dados do pagador</Text>
-                  <Controller
-                    name="billingName"
-                    control={control}
-                    render={({ field }) => (
-                      <FormControl isInvalid={!!errors.billingName} isRequired>
-                        <FormLabel>Nome completo</FormLabel>
-                        <Input placeholder="Nome do pagador" {...field} />
-                        <FormErrorMessage>{errors.billingName?.message}</FormErrorMessage>
-                      </FormControl>
-                    )}
-                  />
-                  <Controller
-                    name="billingEmail"
-                    control={control}
-                    render={({ field }) => (
-                      <FormControl isInvalid={!!errors.billingEmail} isRequired>
-                        <FormLabel>E-mail</FormLabel>
-                        <Input type="email" placeholder="email@exemplo.com" {...field} />
-                        <FormErrorMessage>{errors.billingEmail?.message}</FormErrorMessage>
-                      </FormControl>
-                    )}
-                  />
-                  <Controller
-                    name="billingDocument"
-                    control={control}
-                    render={({ field }) => (
-                      <FormControl isInvalid={!!errors.billingDocument} isRequired>
-                        <FormLabel>CPF</FormLabel>
-                        <Input as={IMaskInput as any} mask="000.000.000-00" placeholder="000.000.000-00" value={field.value} onAccept={(val: string) => field.onChange(val)} />
-                        <FormErrorMessage>{errors.billingDocument?.message}</FormErrorMessage>
-                      </FormControl>
-                    )}
-                  />
-                  <Controller
-                    name="billingPhone"
-                    control={control}
-                    render={({ field }) => (
-                      <FormControl isInvalid={!!errors.billingPhone} isRequired>
-                        <FormLabel>Telefone</FormLabel>
-                        <Input as={IMaskInput as any} mask="(00) 00000-0000" placeholder="(00) 00000-0000" value={field.value} onAccept={(val: string) => field.onChange(val)} />
-                        <FormErrorMessage>{errors.billingPhone?.message}</FormErrorMessage>
-                      </FormControl>
-                    )}
-                  />
-                </Stack>
-
-                <Stack spacing={4}>
-                  <Text fontWeight={600}>Endereço de cobrança</Text>
-                  <Controller
-                    name="billingZipCode"
-                    control={control}
-                    render={({ field }) => (
-                      <FormControl isInvalid={!!errors.billingZipCode} isRequired>
-                        <FormLabel>CEP</FormLabel>
-                        <HStack>
-                          <Input
-                            as={IMaskInput as any}
-                            mask="00000-000"
-                            placeholder="00000-000"
-                            value={field.value}
-                            onAccept={(val: string) => field.onChange(val)}
-                            flex={1}
-                          />
-                          {loadingCep && <Spinner size="sm" />}
-                        </HStack>
-                        <FormErrorMessage>{errors.billingZipCode?.message}</FormErrorMessage>
-                      </FormControl>
-                    )}
-                  />
-                  <Controller
-                    name="billingStreet"
-                    control={control}
-                    render={({ field }) => (
-                      <FormControl isInvalid={!!errors.billingStreet} isRequired>
-                        <FormLabel>Rua</FormLabel>
-                        <Input placeholder="Rua" {...field} />
-                        <FormErrorMessage>{errors.billingStreet?.message}</FormErrorMessage>
-                      </FormControl>
-                    )}
-                  />
-                  <HStack spacing={4} align="flex-start">
-                    <Controller
-                      name="billingNumber"
-                      control={control}
-                      render={({ field }) => (
-                        <FormControl isInvalid={!!errors.billingNumber} isRequired>
-                          <FormLabel>Número</FormLabel>
-                          <Input placeholder="Número" {...field} />
-                          <FormErrorMessage>{errors.billingNumber?.message}</FormErrorMessage>
-                        </FormControl>
-                      )}
-                    />
-                    <Controller
-                      name="billingComplement"
-                      control={control}
-                      render={({ field }) => (
-                        <FormControl>
-                          <FormLabel>Complemento</FormLabel>
-                          <Input placeholder="Apartamento, bloco..." {...field} />
+                        <FormControl isInvalid={!!(errors as any)?.cardCvv} isRequired>
+                          <FormLabel fontSize="sm">CVV</FormLabel>
+                          <Input size="md" as={IMaskInput as any} mask="0000" placeholder="CVV" value={field.value} onAccept={(val: string) => field.onChange(val)} />
+                          <FormErrorMessage fontSize="xs">{(errors as any)?.cardCvv?.message as any}</FormErrorMessage>
                         </FormControl>
                       )}
                     />
                   </HStack>
-                  <Controller
-                    name="billingDistrict"
-                    control={control}
-                    render={({ field }) => (
-                      <FormControl isInvalid={!!errors.billingDistrict} isRequired>
-                        <FormLabel>Bairro</FormLabel>
-                        <Input placeholder="Bairro" {...field} />
-                        <FormErrorMessage>{errors.billingDistrict?.message}</FormErrorMessage>
-                      </FormControl>
-                    )}
-                  />
-                  <HStack spacing={4} align="flex-start">
-                    <Controller
-                      name="billingCity"
-                      control={control}
-                      render={({ field }) => (
-                        <FormControl isInvalid={!!errors.billingCity} isRequired>
-                          <FormLabel>Cidade</FormLabel>
-                          <Input placeholder="Cidade" {...field} />
-                          <FormErrorMessage>{errors.billingCity?.message}</FormErrorMessage>
-                        </FormControl>
-                      )}
-                    />
-                    <Controller
-                      name="billingState"
-                      control={control}
-                      render={({ field }) => (
-                        <FormControl isInvalid={!!errors.billingState} isRequired maxW="120px">
-                          <FormLabel>UF</FormLabel>
-                          <Input placeholder="UF" value={field.value} maxLength={2} textTransform="uppercase" onChange={(ev) => field.onChange(ev.target.value.toUpperCase())} />
-                          <FormErrorMessage>{errors.billingState?.message}</FormErrorMessage>
-                        </FormControl>
-                      )}
-                    />
-                    <Controller
-                      name="billingCountry"
-                      control={control}
-                      render={({ field }) => (
-                        <FormControl isInvalid={!!errors.billingCountry} isRequired maxW="140px">
-                          <FormLabel>País</FormLabel>
-                          <Input placeholder="País" value={field.value} onChange={(ev) => field.onChange(ev.target.value.toUpperCase())} />
-                          <FormErrorMessage>{errors.billingCountry?.message}</FormErrorMessage>
-                        </FormControl>
-                      )}
-                    />
-                  </HStack>
-                </Stack>
+                </VStack>
+              )}
+            </VStack>
 
-                {submitError && (
-                  <Alert status="error" borderRadius="md">
-                    <AlertIcon />
-                    <AlertDescription>{submitError}</AlertDescription>
-                  </Alert>
+            <VStack align="stretch" spacing={4}>
+              <HStack spacing={2}>
+                <Icon name="user" size={16} />
+                <Text fontSize="sm" color="gray.600" textTransform="uppercase" fontWeight={700}>Dados do pagador</Text>
+              </HStack>
+              <Controller
+                name="billingName"
+                control={control}
+                render={({ field }) => (
+                  <FormControl isInvalid={!!errors.billingName} isRequired>
+                    <FormLabel fontSize="sm">Nome completo</FormLabel>
+                    <Input size="md" placeholder="Nome do pagador" {...field} />
+                    <FormErrorMessage fontSize="xs">{errors.billingName?.message}</FormErrorMessage>
+                  </FormControl>
                 )}
+              />
+              <Controller
+                name="billingEmail"
+                control={control}
+                render={({ field }) => (
+                  <FormControl isInvalid={!!errors.billingEmail} isRequired>
+                    <FormLabel fontSize="sm">E-mail</FormLabel>
+                    <Input size="md" type="email" placeholder="email@exemplo.com" {...field} />
+                    <FormErrorMessage fontSize="xs">{errors.billingEmail?.message}</FormErrorMessage>
+                  </FormControl>
+                )}
+              />
+              <Controller
+                name="billingPhone"
+                control={control}
+                render={({ field }) => (
+                  <FormControl isInvalid={!!errors.billingPhone} isRequired>
+                    <FormLabel fontSize="sm">Telefone</FormLabel>
+                    <Input size="md" as={IMaskInput as any} mask="(00) 00000-0000" placeholder="(00) 00000-0000" value={field.value} onAccept={(val: string) => field.onChange(val)} />
+                    <FormErrorMessage fontSize="xs">{errors.billingPhone?.message}</FormErrorMessage>
+                  </FormControl>
+                )}
+              />
+              <Controller
+                name="billingDocument"
+                control={control}
+                render={({ field }) => (
+                  <FormControl isInvalid={!!errors.billingDocument} isRequired>
+                    <FormLabel fontSize="sm">CPF</FormLabel>
+                    <Input size="md" as={IMaskInput as any} mask="000.000.000-00" placeholder="000.000.000-00" value={field.value} onAccept={(val: string) => field.onChange(val)} />
+                    <FormErrorMessage fontSize="xs">{errors.billingDocument?.message}</FormErrorMessage>
+                  </FormControl>
+                )}
+              />
+            </VStack>
 
-                <Button
-                  type="submit"
-                  colorScheme="yellow"
-                  size="lg"
-                  isDisabled={disableSubmit || isSubmitting}
-                  isLoading={isSubmitting}
-                  loadingText="Criando..."
-                >
-                  Confirmar assinatura
-                </Button>
-              </VStack>
-            </form>
-          </VStack>
+            <VStack align="stretch" spacing={4}>
+              <HStack spacing={2}>
+                <Icon name="folder" size={16} />
+                <Text fontSize="sm" color="gray.600" textTransform="uppercase" fontWeight={700}>Endereço de cobrança</Text>
+              </HStack>
+              <HStack spacing={3}>
+                <Controller
+                  name="billingZipCode"
+                  control={control}
+                  render={({ field }) => (
+                    <FormControl isInvalid={!!errors.billingZipCode} isRequired>
+                      <FormLabel fontSize="sm">CEP</FormLabel>
+                      <HStack>
+                        <Input size="md" as={IMaskInput as any} mask="00000-000" placeholder="00000-000" value={field.value} onAccept={(val: string) => field.onChange(val)} />
+                        {loadingCep && <Spinner size="sm" />}
+                      </HStack>
+                      <FormErrorMessage fontSize="xs">{errors.billingZipCode?.message}</FormErrorMessage>
+                    </FormControl>
+                  )}
+                />
+                <Controller
+                  name="billingNumber"
+                  control={control}
+                  render={({ field }) => (
+                    <FormControl isInvalid={!!errors.billingNumber} isRequired maxW="140px">
+                      <FormLabel fontSize="sm">Número</FormLabel>
+                      <Input size="md" placeholder="Nº" {...field} />
+                      <FormErrorMessage fontSize="xs">{errors.billingNumber?.message}</FormErrorMessage>
+                    </FormControl>
+                  )}
+                />
+              </HStack>
+              <Controller
+                name="billingStreet"
+                control={control}
+                render={({ field }) => (
+                  <FormControl isInvalid={!!errors.billingStreet} isRequired>
+                    <FormLabel fontSize="sm">Rua</FormLabel>
+                    <Input size="md" placeholder="Rua" {...field} />
+                    <FormErrorMessage fontSize="xs">{errors.billingStreet?.message}</FormErrorMessage>
+                  </FormControl>
+                )}
+              />
+              <Controller
+                name="billingComplement"
+                control={control}
+                render={({ field }) => (
+                  <FormControl>
+                    <FormLabel fontSize="sm">Complemento</FormLabel>
+                    <Input size="md" placeholder="Apto, bloco..." {...field} />
+                  </FormControl>
+                )}
+              />
+              <Controller
+                name="billingDistrict"
+                control={control}
+                render={({ field }) => (
+                  <FormControl isInvalid={!!errors.billingDistrict} isRequired>
+                    <FormLabel fontSize="sm">Bairro</FormLabel>
+                    <Input size="md" placeholder="Bairro" {...field} />
+                    <FormErrorMessage fontSize="xs">{errors.billingDistrict?.message}</FormErrorMessage>
+                  </FormControl>
+                )}
+              />
+              <HStack spacing={3}>
+                <Controller
+                  name="billingCity"
+                  control={control}
+                  render={({ field }) => (
+                    <FormControl isInvalid={!!errors.billingCity} isRequired>
+                      <FormLabel fontSize="sm">Cidade</FormLabel>
+                      <Input size="md" placeholder="Cidade" {...field} />
+                      <FormErrorMessage fontSize="xs">{errors.billingCity?.message}</FormErrorMessage>
+                    </FormControl>
+                  )}
+                />
+                <Controller
+                  name="billingState"
+                  control={control}
+                  render={({ field }) => (
+                    <FormControl isInvalid={!!errors.billingState} isRequired maxW="100px">
+                      <FormLabel fontSize="sm">UF</FormLabel>
+                      <Input size="md" placeholder="UF" value={field.value} maxLength={2} textTransform="uppercase" onChange={(ev) => field.onChange(ev.target.value.toUpperCase())} />
+                      <FormErrorMessage fontSize="xs">{errors.billingState?.message}</FormErrorMessage>
+                    </FormControl>
+                  )}
+                />
+              </HStack>
+            </VStack>
+          </SimpleGrid>
+
+          <HStack justify="space-between" align="center" mt={6}>
+            {submitError ? (
+              <Alert status="error" borderRadius="md" flex="1" mr={4}>
+                <AlertIcon />
+                <AlertDescription>{submitError}</AlertDescription>
+              </Alert>
+            ) : (
+              <Box flex="1" />
+            )}
+            <Button
+              type="submit"
+              colorScheme="yellow"
+              size="lg"
+              minW="300px"
+              isDisabled={disableSubmit || isSubmitting}
+              isLoading={isSubmitting}
+              loadingText="Processando..."
+            >
+              Confirmar assinatura
+            </Button>
+          </HStack>
         </Box>
       </VStack>
-    </Container>
+    </Box>
   )
 }
