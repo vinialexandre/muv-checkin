@@ -162,6 +162,11 @@ export default function SubscriptionTab({ mode, studentId, control, watch, plans
                 </Badge>
                 <Text>{subSummary?.plan?.name || '-'}</Text>
               </HStack>
+              {!subSummary && (
+                <Text fontSize="sm" color="gray.600">
+                  Esse aluno ainda não possui assinatura ativa. Gere o link de assinatura abaixo para que ele contrate um plano.
+                </Text>
+              )}
               <HStack spacing={3} wrap="wrap">
                 <Select maxW="280px" placeholder="Selecionar plano" value={newPlanId} onChange={(e) => setNewPlanId(e.target.value)}>
                   {plans.map((plan) => (
@@ -182,7 +187,7 @@ export default function SubscriptionTab({ mode, studentId, control, watch, plans
                       toast({ status: 'error', title: 'Erro ao trocar plano', description: String(err?.message || err) });
                     }
                   }}
-                  isDisabled={!newPlanId}
+                  isDisabled={!newPlanId || !subSummary}
                 >
                   Aplicar
                 </Button>

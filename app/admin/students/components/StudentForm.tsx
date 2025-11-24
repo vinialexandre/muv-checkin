@@ -177,7 +177,7 @@ export default function StudentForm({ mode, studentId }: StudentFormProps) {
         video={biometry.video}
         setVideo={biometry.setVideo}
         faceReady={biometry.faceReady}
-        faceErr={biometry.faceErr}
+        faceErr={biometry?.faceErr || null}
         livenessOk={biometry.livenessOk}
         samples={biometry.samples}
         photoPreviews={biometry.photoPreviews}

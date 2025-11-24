@@ -49,13 +49,81 @@ export async function ensureCustomer(args: EnsureCustomerArgs, env?: Partial<Pag
   return { customerId: created.id }
 }
 
+export type TokenizeCardArgs = {
+  number: string
+  holder: string
+  expMonth: string
+  expYear: string
+  cvv: string
+}
+
+export type TokenizeCardResult = {
+  id: string
+}
+
+export async function tokenizeCard(args: TokenizeCardArgs, env?: Partial<PagarmeEnv>): Promise<TokenizeCardResult> {
+  const body: Record<string, any> = {
+    type: 'card',
+    card: {
+      number: args.number,
+      holder_name: args.holder,
+      exp_month: args.expMonth,
+      exp_year: args.expYear,
+      cvv: args.cvv,
+    },
+  }
+
+  const publicKey =
+    (env?.apiKey && env.apiKey.startsWith('pk_') ? env.apiKey : undefined)
+    || process.env.PAGARME_PUBLIC_KEY
+    || process.env.NEXT_PUBLIC_PAGARME_PUBLIC_KEY
+
+  if (!publicKey) {
+    throw new Error('pagarme_public_key_missing')
+  }
+
+  const baseUrl = env?.baseUrl || process.env.PAGARME_BASE_URL || 'https://api.pagar.me/core/v5'
+  const url = `${baseUrl}/tokens?appId=${encodeURIComponent(publicKey)}`
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    cache: 'no-store',
+    next: { revalidate: 0 },
+    body: JSON.stringify(body),
+  })
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(`pagarme_http_${res.status}: ${text}`)
+  }
+
+  const json: any = await res.json()
+  const id = json?.id || json?.token
+  if (!id) throw new Error('pagarme_tokenize_failed')
+  return { id }
+}
+
 export type CreateSubscriptionArgs = {
   customerId: string
   planId: string
   paymentMethod: 'credit_card'|'pix'|'boleto'
   idempotencyKey?: string
+  cardId?: string
   cardToken?: string
   cardHash?: string
+  billingAddress?: {
+    zipCode: string
+    street: string
+    number?: string
+    complement?: string
+    district: string
+    city: string
+    state: string
+    country: string
+  }
 }
 
 export type CreateSubscriptionResult = {
@@ -76,8 +144,23 @@ export async function createSubscription(args: CreateSubscriptionArgs, env?: Par
     payload.cash = { type: 'pix' }
   }
   if (mappedMethod === 'credit_card') {
-    if (args.cardToken) payload.card = { card_token: args.cardToken }
+    if (args.cardId) payload.card_id = args.cardId
+    else if (args.cardToken) payload.card_token = args.cardToken
     else if (args.cardHash) payload.card_hash = args.cardHash
+    if (args.billingAddress) {
+      const a = args.billingAddress
+      const line1 = a.number ? `${a.street}, ${a.number}` : a.street
+      payload.credit_card = payload.credit_card || {}
+      payload.credit_card.card = payload.credit_card.card || {}
+      payload.credit_card.card.billing_address = {
+        country: a.country,
+        state: a.state,
+        city: a.city,
+        zip_code: a.zipCode,
+        line_1: line1,
+        line_2: a.complement || undefined,
+      }
+    }
   }
   const headersOverride = args.idempotencyKey ? { 'Idempotency-Key': args.idempotencyKey } : undefined
   const res = await pagarmeRequest<any>('POST', '/subscriptions', undefined, env, payload, headersOverride)
@@ -224,7 +307,7 @@ export type CancelSubscriptionResult = { canceled: boolean }
 export async function cancelSubscription(args: CancelSubscriptionArgs, env?: Partial<PagarmeEnv>): Promise<CancelSubscriptionResult> {
   const { apiKey } = cfg(env)
   if (!apiKey) throw new Error('pagarme_api_key_missing')
-  await pagarmeRequest<any>('POST', `/subscriptions/${args.subscriptionId}/cancel`, undefined, env)
+  await pagarmeRequest<any>('DELETE', `/subscriptions/${args.subscriptionId}`, undefined, env)
   return { canceled: true }
 }
 

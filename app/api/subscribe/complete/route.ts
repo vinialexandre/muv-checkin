@@ -125,6 +125,16 @@ export async function POST(req: NextRequest) {
       idempotencyKey: `subscribe:${studentId}:${String(plan.pagarmePlanId)}:${String(token)}`,
       cardToken,
       cardHash,
+      billingAddress: addressRequired ? {
+        zipCode: addressZip,
+        street: addressStreet,
+        number: addressNumber,
+        complement: addressComplement,
+        district: addressDistrict,
+        city: addressCity,
+        state: addressState,
+        country: addressCountry,
+      } : undefined,
     })
 
     const contactToSave: Record<string, any> = {

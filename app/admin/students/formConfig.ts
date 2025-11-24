@@ -2,7 +2,6 @@ import * as yup from "yup";
 import { Timestamp } from "firebase/firestore";
 import type {
   Student,
-  StudentPaymentPreference,
 } from "@/lib/firestore";
 
 export const CURRENT_CONSENT_VERSION = "2025-09";
@@ -22,8 +21,6 @@ export function isMinor(iso?: string) {
   }
   return age < 18;
 }
-
-const PAYMENT_METHODS: StudentPaymentPreference[] = ["credit_card", "pix"];
 
 function formatCpfDigits(digits: string) {
   const clean = onlyDigits(digits).slice(0, 11);

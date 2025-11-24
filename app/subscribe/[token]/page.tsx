@@ -297,41 +297,26 @@ export default function SubscribeTokenPage() {
     setMethods(allowed)
   }, [allowedPlans, selectedPlanId])
 
-  const PUBLIC_KEY = process.env.NEXT_PUBLIC_PAGARME_PUBLIC_KEY as string | undefined
-
   const tokenizeCardV5 = useCallback(async (params: { number: string; holder: string; exp: string; cvv: string }) => {
-    if (!PUBLIC_KEY) throw new Error('chave_publica_ausente')
-    const num = onlyDigits(params.number)
-    const cvv = onlyDigits(params.cvv)
-    const [mmRaw, yyRaw] = String(params.exp || '').split('/')
-    const exp_month = onlyDigits(mmRaw || '').padStart(2, '0').slice(0,2)
-    const yy = onlyDigits(yyRaw || '').slice(-2)
-    const yearPrefix = Number(yy) <= 79 ? '20' : '19'
-    const exp_year = (yearPrefix + yy)
-    const res = await fetch('https://api.pagar.me/core/v5/tokens', {
+    const res = await fetch('/api/pagarme/tokenize-card', {
       method: 'POST',
       headers: {
-        'Authorization': 'Basic ' + btoa(PUBLIC_KEY + ':'),
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        type: 'card',
-        card: {
-          number: num,
-          holder_name: params.holder,
-          exp_month,
-          exp_year,
-          cvv
-        }
+        number: params.number,
+        holder: params.holder,
+        exp: params.exp,
+        cvv: params.cvv
       })
     })
     const json = await res.json().catch(() => ({} as any))
-    if (!res.ok) {
-      const msg = json?.message || json?.error || 'falha_tokenizar_cartao'
+    if (!res.ok || !json?.ok || !json?.token) {
+      const msg = json?.error || 'falha_tokenizar_cartao'
       throw new Error(msg)
     }
-    return json?.id || json?.token || ''
-  }, [PUBLIC_KEY])
+    return String(json.token)
+  }, [])
 
 
   const onSubmit = async (values: FormValues) => {

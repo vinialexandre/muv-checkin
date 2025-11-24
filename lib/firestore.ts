@@ -58,6 +58,7 @@ export type Student = {
   billingConsentVersion?: string;
   paymentPreference?: StudentPaymentPreference;
   pagarmeCustomerId?: string;
+  pagarmeCardId?: string;
   paymentStatus?: StudentPaymentStatus;
   // Pagamento mensal: usamos lastPaidAt para calcular o vencimento (1 mês após)
   lastPaidAt?: Timestamp;
