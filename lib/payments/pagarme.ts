@@ -106,6 +106,60 @@ export async function tokenizeCard(args: TokenizeCardArgs, env?: Partial<Pagarme
   return { id }
 }
 
+export type CreateCustomerCardArgs = {
+  customerId: string
+  cardToken?: string
+  cardHash?: string
+  billingAddress: {
+    zipCode: string
+    street: string
+    number: string
+    complement?: string
+    district: string
+    city: string
+    state: string
+    country: string
+  }
+  holderName?: string
+  holderDocument?: string
+}
+
+export type CreateCustomerCardResult = {
+  cardId: string
+}
+
+export async function createCustomerCard(args: CreateCustomerCardArgs, env?: Partial<PagarmeEnv>): Promise<CreateCustomerCardResult> {
+  const { apiKey } = cfg(env)
+  if (!apiKey) throw new Error('pagarme_api_key_missing')
+  const token = args.cardToken || args.cardHash
+  if (!token) throw new Error('pagarme_card_token_missing')
+  const a = args.billingAddress
+  const line1 = a.number ? `${a.street}, ${a.number}` : a.street
+  const body: any = {
+    token,
+    billing_address: {
+      street: a.street,
+      number: a.number,
+      zip_code: a.zipCode,
+      neighborhood: a.district,
+      city: a.city,
+      state: a.state,
+      country: a.country,
+      complement: a.complement || '',
+      metadata: {},
+      line_1: line1,
+      line_2: a.complement || '',
+    },
+  }
+  if (args.holderName) body.holder_name = args.holderName
+  if (args.holderDocument) body.holder_document = args.holderDocument
+  const res = await pagarmeRequest<any>('POST', `/customers/${args.customerId}/cards`, undefined, env, body)
+  const cardId = res?.id
+  if (!cardId) throw new Error('pagarme_create_card_failed')
+  return { cardId }
+}
+
+
 export type CreateSubscriptionArgs = {
   customerId: string
   planId: string
@@ -218,8 +272,23 @@ export async function upsertPlan(args: UpsertPlanArgs, env?: Partial<PagarmeEnv>
   if (args.status) {
     payload.status = args.status
   }
-  const pathUrl = args.pagarmePlanId ? `/plans/${args.pagarmePlanId}` : '/plans'
-  const method = args.pagarmePlanId ? 'PUT' : 'POST'
+
+  let shouldCreateNew = false
+  if (args.pagarmePlanId) {
+    try {
+      const existing = await pagarmeRequest<any>('GET', `/plans/${args.pagarmePlanId}`, undefined, env)
+      const existingPrice = existing?.pricing_scheme?.price
+      const newPrice = Math.round(args.amount)
+      if (existingPrice !== undefined && existingPrice !== newPrice) {
+        shouldCreateNew = true
+      }
+    } catch (e) {
+      shouldCreateNew = true
+    }
+  }
+
+  const pathUrl = (args.pagarmePlanId && !shouldCreateNew) ? `/plans/${args.pagarmePlanId}` : '/plans'
+  const method = (args.pagarmePlanId && !shouldCreateNew) ? 'PUT' : 'POST'
   const res = await pagarmeRequest<any>(method, pathUrl, undefined, env, payload)
   const planId = res?.id || args.pagarmePlanId
   if (!planId) throw new Error('pagarme_plan_sync_failed')

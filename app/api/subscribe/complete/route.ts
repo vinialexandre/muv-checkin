@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminDb } from '@/lib/firebase-admin'
-import { ensureCustomer, createSubscription } from '@/lib/payments/pagarme'
+import { ensureCustomer, createSubscription, createCustomerCard } from '@/lib/payments/pagarme'
 
 const onlyDigits = (value?: string) => String(value || '').replace(/\D/g, '')
 const trimOrEmpty = (value: unknown) => (typeof value === 'string' ? value.trim() : '')
@@ -118,13 +118,36 @@ export async function POST(req: NextRequest) {
       phone: contactPhone,
     })
 
+    let cardId: string | undefined
+    if (paymentMethod === 'credit_card') {
+      const createdCard = await createCustomerCard({
+        customerId: ensured.customerId,
+        cardToken,
+        cardHash,
+        billingAddress: {
+          zipCode: addressZip,
+          street: addressStreet,
+          number: addressNumber,
+          complement: addressComplement || undefined,
+          district: addressDistrict,
+          city: addressCity,
+          state: addressState,
+          country: addressCountry,
+        },
+        holderName: contactName,
+        holderDocument: contactDocument,
+      })
+      cardId = createdCard.cardId
+    }
+
     const created = await createSubscription({
       customerId: ensured.customerId,
       planId: String(plan.pagarmePlanId),
       paymentMethod,
       idempotencyKey: `subscribe:${studentId}:${String(plan.pagarmePlanId)}:${String(token)}`,
-      cardToken,
-      cardHash,
+      cardId: paymentMethod === 'credit_card' ? cardId : undefined,
+      cardToken: paymentMethod === 'credit_card' ? undefined : cardToken,
+      cardHash: paymentMethod === 'credit_card' ? undefined : cardHash,
       billingAddress: addressRequired ? {
         zipCode: addressZip,
         street: addressStreet,
