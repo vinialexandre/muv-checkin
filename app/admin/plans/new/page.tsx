@@ -12,11 +12,13 @@ import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { PlanBillingInterval, PlanPaymentMethod } from '@/lib/firestore';
 
-function parseBRL(v: string): number {
-  if (!v) return NaN;
-  const n = v.replace(/[^0-9,.-]/g, '').replace(/\./g,'').replace(',', '.');
-  return parseFloat(n);
-}
+function parseBRL(v: string | number): number {
+	  if (v === null || v === undefined) return NaN;
+	  const s = typeof v === 'number' ? String(v) : v;
+	  if (!s) return NaN;
+	  const n = s.replace(/[^0-9,.-]/g, '').replace(/\./g,'').replace(',', '.');
+	  return parseFloat(n);
+	}
 
 const paymentMethodOptions: { value: PlanPaymentMethod; label: string }[] = [
   { value: 'credit_card', label: 'Cartão de crédito' },
@@ -37,21 +39,15 @@ const schema = yup.object({
       return Number.isInteger(n) && n > 0 && n <= 12;
     }),
   paymentMethods: yup.array().of(yup.mixed<PlanPaymentMethod>().oneOf(['credit_card','pix','boleto'])).min(1,'Selecione pelo menos um método'),
-  billingCycles: yup.string().optional().test('valid-cycle','Informe um número maior que zero', (v)=>{
-    if (!v) return true;
-    const n = Number(v);
-    return Number.isInteger(n) && n > 0 && n <= 120;
-  }),
   active: yup.boolean().required(),
 });
 type FormData = yup.InferType<typeof schema>;
 
 export default function NewPlanPage() {
-  const router = useRouter();
-  const toast = useToast();
-  const { control, handleSubmit, formState:{ errors, isValid, isSubmitting } } = useForm<FormData>({
-    mode:'onBlur',
-    reValidateMode:'onChange',
+	const router = useRouter();
+	const toast = useToast();
+	const { control, handleSubmit, formState:{ errors, isValid, isSubmitting } } = useForm<FormData>({
+	    mode:'onChange',
     resolver: yupResolver(schema) as any,
     defaultValues:{
       name:'',
@@ -59,15 +55,13 @@ export default function NewPlanPage() {
       billingInterval:'month',
       billingIntervalCount:'1',
       paymentMethods:['credit_card'],
-      billingCycles:'',
       active: true,
-    }
-  });
+	    }
+	  });
 
   const save = handleSubmit(async (data)=>{
     const price = parseBRL(data.priceStr);
     const billingIntervalCount = Number(data.billingIntervalCount);
-    const billingCycles = data.billingCycles ? Number(data.billingCycles) : undefined;
 
     const payload: Record<string, any> = {
       name: data.name,
@@ -80,7 +74,6 @@ export default function NewPlanPage() {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
-    if (billingCycles) payload.billingCycles = billingCycles;
 
     await addDoc(collection(db,'plans'), payload);
     toast({ title:'Plano criado', status:'success' });
@@ -103,12 +96,23 @@ export default function NewPlanPage() {
             </FormControl>
           )}/>
           <HStack spacing={4} wrap="wrap">
-            <Controller name="priceStr" control={control} render={({ field }) => (
+	            <Controller name="priceStr" control={control} render={({ field }) => (
               <FormControl isInvalid={!!errors.priceStr} isRequired maxW="240px">
                 <FormLabel>Valor</FormLabel>
                 <InputGroup>
                   <InputLeftAddon>R$</InputLeftAddon>
-                  <Input as={IMaskInput as any} mask={Number} scale={2} padFractionalZeros={true} thousandsSeparator="." radix="," placeholder="0,00" value={field.value as any} onAccept={(v:any)=>field.onChange(v)} />
+	                  <Input
+	                    as={IMaskInput as any}
+	                    mask={Number}
+	                    scale={2}
+	                    padFractionalZeros={true}
+	                    thousandsSeparator="."
+	                    radix="," 
+	                    placeholder="0,00"
+	                    value={field.value as any}
+	                    onAccept={(v: any) => field.onChange(String(v ?? ''))}
+	                    onBlur={field.onBlur}
+	                  />
                 </InputGroup>
                 <FormErrorMessage>{errors.priceStr?.message as any}</FormErrorMessage>
               </FormControl>
@@ -138,14 +142,6 @@ export default function NewPlanPage() {
                 <FormLabel>Repetir a cada</FormLabel>
                 <Input type="number" min={1} max={12} {...field} />
                 <FormHelperText>P. ex.: 1 = a cada mês.</FormHelperText>
-                <FormErrorMessage>{fieldState.error?.message as any}</FormErrorMessage>
-              </FormControl>
-            )}/>
-            <Controller name="billingCycles" control={control} render={({ field, fieldState }) => (
-              <FormControl isInvalid={!!fieldState.error} flex="1" maxW="220px">
-                <FormLabel>Ciclos máximos</FormLabel>
-                <Input type="number" min={1} max={120} placeholder="Indefinido" {...field} />
-                <FormHelperText>Deixe em branco para recorrência contínua.</FormHelperText>
                 <FormErrorMessage>{fieldState.error?.message as any}</FormErrorMessage>
               </FormControl>
             )}/>

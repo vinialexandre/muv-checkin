@@ -3,25 +3,23 @@ import { db } from '@/lib/firebase';
 import { AlertDialog, AlertDialogBody, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogOverlay, Badge, Button, Center, HStack, Input, Spinner, Table, Tbody, Td, Text, Th, Thead, Tr, VStack, useToast, Box, useMediaQuery, Heading } from '@chakra-ui/react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { collection, deleteDoc, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { collection, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import PageCard from '@/components/PageCard';
 
 import { Icon } from '@/components/Icon';
 import { Plan, PlanBillingInterval, PlanPaymentMethod, PlanSyncStatus } from '@/lib/firestore';
 
-function labelInterval(interval?: PlanBillingInterval, count?: number, cycles?: number) {
-  if (!interval || !count) return '-';
-  const intervalLabel = {
-    day: 'dia(s)',
-    week: 'semana(s)',
-    month: 'mês(es)',
-    year: 'ano(s)',
-  }[interval];
-  const base = `A cada ${count} ${intervalLabel}`;
-  if (cycles && cycles > 0) return `${base} · ${cycles} ciclo(s)`;
-  return base;
-}
+function labelInterval(interval?: PlanBillingInterval, count?: number) {
+	  if (!interval || !count) return '-';
+	  const intervalLabel = {
+	    day: 'dia(s)',
+	    week: 'semana(s)',
+	    month: 'mês(es)',
+	    year: 'ano(s)',
+	  }[interval];
+	  return `A cada ${count} ${intervalLabel}`;
+	}
 
 function labelPaymentMethods(methods?: PlanPaymentMethod[]) {
   if (!methods || !methods.length) return '-';
@@ -127,9 +125,17 @@ export default function PlansPage() {
 
   async function removeNow() {
     if (!deleteId) return;
-    await deleteDoc(doc(db, 'plans', deleteId));
-    setDeleteId(undefined);
-    toast({ title: 'Plano excluído', status: 'info' });
+	    try {
+	      const res = await fetch(`/api/plans/${deleteId}`, { method: 'DELETE' });
+	      const json = await res.json().catch(() => undefined);
+	      if (!res.ok || !json?.ok) {
+	        throw new Error(json?.error || 'Falha ao excluir plano');
+	      }
+	      setDeleteId(undefined);
+	      toast({ title: 'Plano excluído', status: 'info' });
+	    } catch (e: any) {
+	      toast({ title: 'Erro ao excluir plano', description: String(e?.message || e), status: 'error' });
+	    }
   }
 
   return (
@@ -179,7 +185,7 @@ export default function PlansPage() {
                   <Box key={p.id} borderWidth="1px" borderRadius="md" p={4}>
                     <VStack align="stretch" spacing={2}>
                       <Text fontWeight={700}>{p.name}</Text>
-                      <Text fontSize="sm" color="gray.600">Cobrança: {labelInterval(p.billingInterval as PlanBillingInterval | undefined, p.billingIntervalCount as number | undefined, p.billingCycles as number | undefined)}</Text>
+	                      <Text fontSize="sm" color="gray.600">Cobrança: {labelInterval(p.billingInterval as PlanBillingInterval | undefined, p.billingIntervalCount as number | undefined)}</Text>
                       <Text fontSize="sm" color="gray.600">Métodos: {labelPaymentMethods(p.paymentMethods as PlanPaymentMethod[] | undefined)}</Text>
                       <Text fontSize="sm" color="gray.600">Preço: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.price || 0)}</Text>
                       <HStack spacing={2}>
@@ -220,7 +226,7 @@ export default function PlansPage() {
                       <Tr key={p.id}>
                         <Td>{p.name}</Td>
                         <Td>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.price || 0)}</Td>
-                        <Td>{labelInterval(p.billingInterval as PlanBillingInterval | undefined, p.billingIntervalCount as number | undefined, p.billingCycles as number | undefined)}</Td>
+	                        <Td>{labelInterval(p.billingInterval as PlanBillingInterval | undefined, p.billingIntervalCount as number | undefined)}</Td>
                         <Td>{labelPaymentMethods(p.paymentMethods as PlanPaymentMethod[] | undefined)}</Td>
                         <Td><Badge colorScheme={(p.active===false)?'red':'green'}>{(p.active===false)?'Inativo':'Ativo'}</Badge></Td>
                         <Td><Badge colorScheme={sync.scheme}>{sync.label}</Badge></Td>

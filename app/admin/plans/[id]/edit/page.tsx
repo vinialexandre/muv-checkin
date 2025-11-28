@@ -41,11 +41,6 @@ const schema = yup.object({
       return Number.isInteger(n) && n > 0 && n <= 12;
     }),
   paymentMethods: yup.array().of(yup.mixed<PlanPaymentMethod>().oneOf(['credit_card','pix','boleto'])).min(1,'Selecione pelo menos um método'),
-  billingCycles: yup.string().optional().test('valid-cycle','Informe um número maior que zero', (v)=>{
-    if (!v) return true;
-    const n = Number(v);
-    return Number.isInteger(n) && n > 0 && n <= 120;
-  }),
   active: yup.boolean().required(),
 });
 
@@ -66,7 +61,6 @@ export default function EditPlanPage() {
       billingInterval:'month',
       billingIntervalCount:'1',
       paymentMethods:['credit_card'],
-      billingCycles:'',
       active: true,
     }
   });
@@ -88,7 +82,6 @@ export default function EditPlanPage() {
           billingInterval: data?.billingInterval || 'month',
           billingIntervalCount: String(data?.billingIntervalCount ?? 1),
           paymentMethods: Array.isArray(data?.paymentMethods) && data.paymentMethods.length ? data.paymentMethods : ['credit_card'],
-          billingCycles: (typeof data?.billingCycles === 'number' && Number.isFinite(data.billingCycles)) ? String(data.billingCycles) : '',
           active: data?.active ?? true,
         });
         await trigger();
@@ -101,7 +94,6 @@ export default function EditPlanPage() {
   const save = handleSubmit(async (data)=>{
     const price = parseBRL(data.priceStr);
     const billingIntervalCount = Number(data.billingIntervalCount);
-    const billingCycles = data.billingCycles ? Number(data.billingCycles) : undefined;
 
     const payload: Record<string, any> = {
       name: data.name,
@@ -114,11 +106,6 @@ export default function EditPlanPage() {
       planSyncError: deleteField(),
       updatedAt: serverTimestamp(),
     };
-    if (billingCycles) {
-      payload.billingCycles = billingCycles;
-    } else {
-      payload.billingCycles = deleteField();
-    }
 
     await updateDoc(doc(db,'plans', id), payload);
     toast({ title:'Plano atualizado', status:'success' });
@@ -185,14 +172,6 @@ export default function EditPlanPage() {
                   <FormLabel>Repetir a cada</FormLabel>
                   <Input type="number" min={1} max={12} {...field} />
                   <FormHelperText>P. ex.: 1 = a cada mês.</FormHelperText>
-                  <FormErrorMessage>{fieldState.error?.message as any}</FormErrorMessage>
-                </FormControl>
-              )}/>
-              <Controller name="billingCycles" control={control} render={({ field, fieldState }) => (
-                <FormControl isInvalid={!!fieldState.error} flex="1" maxW="220px">
-                  <FormLabel>Ciclos máximos</FormLabel>
-                  <Input type="number" min={1} max={120} placeholder="Indefinido" {...field} />
-                  <FormHelperText>Deixe em branco para recorrência contínua.</FormHelperText>
                   <FormErrorMessage>{fieldState.error?.message as any}</FormErrorMessage>
                 </FormControl>
               )}/>

@@ -18,13 +18,84 @@ interface Props {
 }
 
 const formatPaymentMethod = (method: 'pix'|'boleto'|'credit_card') => {
-  switch (method) {
-    case 'pix': return 'Pix';
-    case 'boleto': return 'Boleto';
-    case 'credit_card': return 'Cartão';
-    default: return method;
-  }
-};
+	  switch (method) {
+	    case 'pix': return 'Pix';
+	    case 'boleto': return 'Boleto';
+	    case 'credit_card': return 'Cartão';
+	    default: return method;
+	  }
+	};
+
+const formatInvoiceStatus = (status?: string | null) => {
+	  if (!status) return '-';
+	  const s = String(status).toLowerCase();
+	  switch (s) {
+	    case 'paid':
+	      return 'Pago';
+	    case 'pending':
+	      return 'Pendente';
+	    case 'processing':
+	      return 'Processando';
+	    case 'failed':
+	      return 'Falhou';
+	    case 'canceled':
+	    case 'cancelled':
+	      return 'Cancelado';
+	    case 'scheduled':
+	      return 'Agendado';
+	    case 'overdue':
+	    case 'past_due':
+	      return 'Em atraso';
+	    case 'refunded':
+	      return 'Estornado';
+	    case 'active':
+	      return 'Ativa';
+	    case 'inactive':
+	      return 'Inativa';
+	    case 'trialing':
+	      return 'Em teste';
+	    case 'paused':
+	      return 'Pausada';
+	    case 'unpaid':
+	      return 'Não pago';
+	    default:
+	      return status;
+	  }
+	};
+
+const formatInvoiceDateTime = (value?: string | null) => {
+	  if (!value) return '-';
+	  const d = new Date(value);
+	  if (Number.isNaN(d.getTime())) return value;
+	  const date = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+	  const time = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false });
+	  return `${date} - ${time}`;
+	};
+
+const getSubscriptionStatusColor = (status?: string | null) => {
+	  const s = String(status || '').toLowerCase();
+	  if (!s) return 'gray';
+	  switch (s) {
+	    case 'active':
+	    case 'paid':
+	      return 'green';
+	    case 'trialing':
+	    case 'scheduled':
+	    case 'processing':
+	    case 'pending':
+	      return 'yellow';
+	    case 'overdue':
+	    case 'past_due':
+	    case 'unpaid':
+	      return 'orange';
+	    case 'failed':
+	    case 'canceled':
+	    case 'cancelled':
+	      return 'red';
+	    default:
+	      return 'gray';
+	  }
+	};
 
 export default function SubscriptionTab({ mode, studentId, control, watch, plans, currencyFormatter, studentNameValue }: Props) {
   const toast = useToast();
@@ -155,13 +226,13 @@ export default function SubscriptionTab({ mode, studentId, control, watch, plans
 
         {mode === 'edit' && studentId && (
           <>
-            <VStack align="stretch" spacing={4}>
-              <HStack spacing={4} wrap="wrap">
-                <Badge colorScheme={String(subSummary?.status || '').toLowerCase() === 'canceled' ? 'red' : 'green'}>
-                  {subSummary?.status || 'Sem assinatura'}
-                </Badge>
-                <Text>{subSummary?.plan?.name || '-'}</Text>
-              </HStack>
+	            <VStack align="stretch" spacing={4}>
+	              <HStack spacing={4} wrap="wrap">
+	                <Badge colorScheme={getSubscriptionStatusColor(subSummary?.status)}>
+	                  {subSummary?.status ? formatInvoiceStatus(subSummary.status) : 'Sem assinatura'}
+	                </Badge>
+	                <Text>{subSummary?.plan?.name || '-'}</Text>
+	              </HStack>
               {!subSummary && (
                 <Text fontSize="sm" color="gray.600">
                   Esse aluno ainda não possui assinatura ativa. Gere o link de assinatura abaixo para que ele contrate um plano.
@@ -317,25 +388,25 @@ export default function SubscriptionTab({ mode, studentId, control, watch, plans
                 <>
                   <Box overflowX="auto">
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                      <thead>
-                        <tr>
-                          <th style={{ textAlign: 'left', padding: '6px' }}>Fatura</th>
-                          <th style={{ textAlign: 'left', padding: '6px' }}>Criada</th>
-                          <th style={{ textAlign: 'left', padding: '6px' }}>Vencimento</th>
-                          <th style={{ textAlign: 'left', padding: '6px' }}>Valor</th>
-                          <th style={{ textAlign: 'left', padding: '6px' }}>Status</th>
-                        </tr>
-                      </thead>
+	                      <thead>
+	                        <tr>
+	                          <th style={{ textAlign: 'left', padding: '6px' }}>Fatura</th>
+	                          <th style={{ textAlign: 'left', padding: '6px' }}>Criada em</th>
+	                          <th style={{ textAlign: 'left', padding: '6px' }}>Vencimento</th>
+	                          <th style={{ textAlign: 'left', padding: '6px' }}>Valor</th>
+	                          <th style={{ textAlign: 'left', padding: '6px' }}>Status</th>
+	                        </tr>
+	                      </thead>
                       <tbody>
-                        {invoices.map((inv: any) => (
-                          <tr key={inv.id}>
-                            <td style={{ padding: '6px' }}>{inv.id}</td>
-                            <td style={{ padding: '6px' }}>{inv.created_at || '-'}</td>
-                            <td style={{ padding: '6px' }}>{inv.due_at || '-'}</td>
-                            <td style={{ padding: '6px' }}>{typeof inv.amount === 'number' ? currencyFormatter.format(inv.amount / 100) : '-'}</td>
-                            <td style={{ padding: '6px' }}>{inv.status || '-'}</td>
-                          </tr>
-                        ))}
+	                        {invoices.map((inv: any) => (
+	                          <tr key={inv.id}>
+	                            <td style={{ padding: '6px' }}>{inv.id}</td>
+	                            <td style={{ padding: '6px' }}>{formatInvoiceDateTime(inv.created_at)}</td>
+	                            <td style={{ padding: '6px' }}>{formatInvoiceDateTime(inv.due_at)}</td>
+	                            <td style={{ padding: '6px' }}>{typeof inv.amount === 'number' ? currencyFormatter.format(inv.amount / 100) : '-'}</td>
+	                            <td style={{ padding: '6px' }}>{formatInvoiceStatus(inv.status)}</td>
+	                          </tr>
+	                        ))}
                         {invoices.length === 0 && (
                           <tr>
                             <td colSpan={5} style={{ padding: '6px' }}>Sem faturas</td>

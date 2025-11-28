@@ -77,7 +77,6 @@ export type Plan = {
   billingInterval?: PlanBillingInterval;
   billingIntervalCount?: number;
   paymentMethods?: PlanPaymentMethod[];
-  billingCycles?: number;
   pagarmePlanId?: string;
   planSyncStatus?: PlanSyncStatus;
   planSyncError?: string;

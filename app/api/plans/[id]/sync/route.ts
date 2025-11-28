@@ -45,14 +45,10 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
     return NextResponse.json({ error: 'plano_intervalo_invalido' }, { status: 400 })
   }
 
-  const intervalCount = Number(plan?.billingIntervalCount ?? 1)
-  if (!Number.isInteger(intervalCount) || intervalCount <= 0) {
-    return NextResponse.json({ error: 'plano_intervalo_count_invalido' }, { status: 400 })
-  }
-
-  const billingCycles = typeof plan?.billingCycles === 'number' && Number.isInteger(plan.billingCycles) && plan.billingCycles > 0
-    ? plan.billingCycles
-    : null
+	  const intervalCount = Number(plan?.billingIntervalCount ?? 1)
+	  if (!Number.isInteger(intervalCount) || intervalCount <= 0) {
+	    return NextResponse.json({ error: 'plano_intervalo_count_invalido' }, { status: 400 })
+	  }
 
   try {
     await ref.update({
@@ -72,7 +68,6 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
       interval: interval as 'day'|'week'|'month'|'year',
       intervalCount,
       paymentMethods,
-      billingCycles,
       metadata: { firebase_plan_id: planId },
       status: plan?.active === false ? 'inactive' : 'active',
     })

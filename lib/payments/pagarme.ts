@@ -235,7 +235,6 @@ export type UpsertPlanArgs = {
   interval: 'day'|'week'|'month'|'year'
   intervalCount: number
   paymentMethods: Array<'credit_card'|'pix'|'boleto'>
-  billingCycles?: number | null
   metadata?: Record<string, string | number | boolean | null | undefined>
   status?: 'active'|'inactive'
 }
@@ -258,7 +257,6 @@ export async function upsertPlan(args: UpsertPlanArgs, env?: Partial<PagarmeEnv>
     payment_methods: normalizedMethods,
     currency: 'BRL',
     billing_type: 'prepaid',
-    billing_cycles: args.billingCycles ?? null,
     metadata: args.metadata,
     pricing_scheme: {
       scheme_type: 'unit',
@@ -273,26 +271,45 @@ export async function upsertPlan(args: UpsertPlanArgs, env?: Partial<PagarmeEnv>
     payload.status = args.status
   }
 
-  let shouldCreateNew = false
-  if (args.pagarmePlanId) {
-    try {
-      const existing = await pagarmeRequest<any>('GET', `/plans/${args.pagarmePlanId}`, undefined, env)
-      const existingPrice = existing?.pricing_scheme?.price
-      const newPrice = Math.round(args.amount)
-      if (existingPrice !== undefined && existingPrice !== newPrice) {
-        shouldCreateNew = true
-      }
-    } catch (e) {
-      shouldCreateNew = true
-    }
-  }
+	  let shouldCreateNew = false
+	  if (args.pagarmePlanId) {
+	    try {
+	      await pagarmeRequest<any>('GET', `/plans/${args.pagarmePlanId}`, undefined, env)
+	    } catch (e) {
+	      shouldCreateNew = true
+	    }
+	  }
 
-  const pathUrl = (args.pagarmePlanId && !shouldCreateNew) ? `/plans/${args.pagarmePlanId}` : '/plans'
-  const method = (args.pagarmePlanId && !shouldCreateNew) ? 'PUT' : 'POST'
+	  const pathUrl = (args.pagarmePlanId && !shouldCreateNew) ? `/plans/${args.pagarmePlanId}` : '/plans'
+	  const method = (args.pagarmePlanId && !shouldCreateNew) ? 'PUT' : 'POST'
   const res = await pagarmeRequest<any>(method, pathUrl, undefined, env, payload)
   const planId = res?.id || args.pagarmePlanId
   if (!planId) throw new Error('pagarme_plan_sync_failed')
   return { planId }
+}
+
+export type DeletePlanArgs = {
+  planId: string
+}
+
+export type DeletePlanResult = {
+  deleted: boolean
+  notFound?: boolean
+}
+
+export async function deletePlan(args: DeletePlanArgs, env?: Partial<PagarmeEnv>): Promise<DeletePlanResult> {
+  const { apiKey } = cfg(env)
+  if (!apiKey) throw new Error('pagarme_api_key_missing')
+  try {
+    await pagarmeRequest<any>('DELETE', `/plans/${args.planId}`, undefined, env)
+    return { deleted: true }
+  } catch (error: any) {
+    const message = typeof error?.message === 'string' ? error.message : ''
+    if (message.startsWith('pagarme_http_404')) {
+      return { deleted: false, notFound: true }
+    }
+    throw error
+  }
 }
 
 export async function findCustomerByExternalId(args: { externalId: string }, env?: Partial<PagarmeEnv>) {
