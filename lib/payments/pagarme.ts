@@ -413,7 +413,7 @@ export type ChangeSubscriptionPlanResult = { changed: boolean }
 export async function changeSubscriptionPlan(args: ChangeSubscriptionPlanArgs, env?: Partial<PagarmeEnv>): Promise<ChangeSubscriptionPlanResult> {
   const { apiKey } = cfg(env)
   if (!apiKey) throw new Error('pagarme_api_key_missing')
-  await pagarmeRequest<any>('PATCH', `/subscriptions/${args.subscriptionId}`, undefined, env, { plan_id: args.planId })
+	  await pagarmeRequest<any>('PUT', `/subscriptions/${args.subscriptionId}`, undefined, env, { plan_id: args.planId })
   return { changed: true }
 }
 

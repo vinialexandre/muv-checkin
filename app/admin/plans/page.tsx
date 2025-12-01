@@ -125,17 +125,26 @@ export default function PlansPage() {
 
   async function removeNow() {
     if (!deleteId) return;
-	    try {
-	      const res = await fetch(`/api/plans/${deleteId}`, { method: 'DELETE' });
-	      const json = await res.json().catch(() => undefined);
-	      if (!res.ok || !json?.ok) {
-	        throw new Error(json?.error || 'Falha ao excluir plano');
-	      }
-	      setDeleteId(undefined);
-	      toast({ title: 'Plano excluído', status: 'info' });
-	    } catch (e: any) {
-	      toast({ title: 'Erro ao excluir plano', description: String(e?.message || e), status: 'error' });
-	    }
+		    try {
+		      const res = await fetch(`/api/plans/${deleteId}`, { method: 'DELETE' });
+		      const json = await res.json().catch(() => undefined);
+		      if (!res.ok || !json?.ok) {
+		        if (json?.error === 'plano_possui_assinaturas_ativas') {
+		          setDeleteId(undefined);
+		          toast({
+		            title: 'Não é possível excluir o plano',
+		            description: 'Este plano possui assinaturas ativas. Cancele as assinaturas antes de excluir o plano.',
+		            status: 'warning',
+		          });
+		          return;
+		        }
+		        throw new Error(json?.error || 'Falha ao excluir plano');
+		      }
+		      setDeleteId(undefined);
+		      toast({ title: 'Plano excluído', status: 'info' });
+		    } catch (e: any) {
+		      toast({ title: 'Erro ao excluir plano', description: String(e?.message || e), status: 'error' });
+		    }
   }
 
   return (

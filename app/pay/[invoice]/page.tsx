@@ -1,10 +1,61 @@
 import { getInvoice, listChargesByInvoice, PagarmeCharge } from '@/lib/payments/pagarme'
 import PixActions from './PixActions'
-import RefreshButton from './RefreshButton'
 import PixLive from './PixLive'
 
 function brl(amount: number) {
-  try { return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((amount||0)/100) } catch { return `${(amount||0)/100}` }
+	try { return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((amount||0)/100) } catch { return `${(amount||0)/100}` }
+}
+
+function formatInvoiceStatus(status?: string | null) {
+	if (!status) return '-'
+	const s = String(status).toLowerCase()
+	switch (s) {
+		case 'paid':
+			return 'Pago'
+		case 'pending':
+			return 'Pendente'
+		case 'processing':
+			return 'Processando'
+		case 'failed':
+			return 'Falhou'
+		case 'canceled':
+		case 'cancelled':
+			return 'Cancelado'
+		case 'scheduled':
+			return 'Agendado'
+		case 'overdue':
+		case 'past_due':
+			return 'Em atraso'
+		case 'refunded':
+			return 'Estornado'
+		case 'active':
+			return 'Ativa'
+		case 'inactive':
+			return 'Inativa'
+		case 'trialing':
+			return 'Em teste'
+		case 'paused':
+			return 'Pausada'
+		case 'unpaid':
+			return 'Não pago'
+		default:
+			return status || '-'
+	}
+}
+
+function formatPaymentMethod(method?: string | null) {
+	if (!method) return '-'
+	const s = String(method).toLowerCase()
+	switch (s) {
+		case 'pix':
+			return 'Pix'
+		case 'boleto':
+			return 'Boleto'
+		case 'credit_card':
+			return 'Cartão de crédito'
+		default:
+			return method
+	}
 }
 
 export default async function InvoicePage({ params }: { params: Promise<{ invoice: string }> }) {
@@ -23,29 +74,28 @@ export default async function InvoicePage({ params }: { params: Promise<{ invoic
   const boleto = charge?.payment_method === 'boleto' ? (charge?.last_transaction?.boleto ? charge?.last_transaction : undefined) : undefined
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}>
-      <div style={{ width: '100%', maxWidth: 720, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, boxShadow: '0 1px 2px rgba(16,24,40,.05)', padding: 24 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h1 style={{ margin: 0, fontSize: 22 }}>Pagamento da Fatura</h1>
-          <RefreshButton />
-        </div>
+	    <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}>
+	      <div style={{ width: '100%', maxWidth: 720, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, boxShadow: '0 1px 2px rgba(16,24,40,.05)', padding: 24 }}>
+	        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+	          <h1 style={{ margin: 0, fontSize: 22 }}>Pagamento da Fatura</h1>
+	        </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <div><strong>Fatura:</strong> {invoice.id}</div>
-          <div><strong>Status:</strong> {invoice.status}</div>
-          <div><strong>Valor:</strong> {brl(invoice.amount)}</div>
-          {invoice.due_at ? <div><strong>Vencimento:</strong> {new Date(invoice.due_at).toLocaleString('pt-BR')}</div> : <div />}
-        </div>
+	        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+	          <div><strong>Fatura:</strong> {invoice.id}</div>
+	          <div><strong>Status:</strong> {formatInvoiceStatus(invoice.status)}</div>
+	          <div><strong>Valor:</strong> {brl(invoice.amount)}</div>
+	          {invoice.due_at ? <div><strong>Vencimento:</strong> {new Date(invoice.due_at).toLocaleString('pt-BR')}</div> : <div />}
+	        </div>
 
-        {charge ? (
-          <div style={{ marginTop: 24 }}>
-            <div style={{ marginBottom: 8 }}>
-              <strong>Método:</strong> {isPix ? 'PIX' : (charge.payment_method || '-')}
-            </div>
-            <div><strong>Status da cobrança:</strong> {charge.status}</div>
-            {charge.paid_at ? <div><strong>Pago em:</strong> {new Date(charge.paid_at).toLocaleString('pt-BR')}</div> : null}
+	        {charge ? (
+	          <div style={{ marginTop: 24 }}>
+	            <div style={{ marginBottom: 8 }}>
+	              <strong>Método:</strong> {isPix ? 'PIX' : formatPaymentMethod(charge.payment_method)}
+	            </div>
+	            <div><strong>Status da cobrança:</strong> {formatInvoiceStatus(charge.status)}</div>
+	            {charge.paid_at ? <div><strong>Pago em:</strong> {new Date(charge.paid_at).toLocaleString('pt-BR')}</div> : null}
 
-            {isPix ? (
+	            {isPix ? (
               <div style={{ marginTop: 16, padding: 16, border: '1px dashed #cbd5e1', borderRadius: 10, background: '#f8fafc' }}>
                 <h3 style={{ marginTop: 0 }}>Pix</h3>
                 {pix ? (

@@ -57,6 +57,7 @@ export type Student = {
   billingConsentAcceptedAt?: Timestamp;
   billingConsentVersion?: string;
   paymentPreference?: StudentPaymentPreference;
+	pagarmeSubscriptionId?: string;
   pagarmeCustomerId?: string;
   pagarmeCardId?: string;
   paymentStatus?: StudentPaymentStatus;

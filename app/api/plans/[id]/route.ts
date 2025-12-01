@@ -20,6 +20,16 @@ export async function DELETE(_req: NextRequest, context: { params: Promise<{ id:
     return NextResponse.json({ error: 'plano_nao_encontrado' }, { status: 404 })
   }
 
+  const studentsWithPlanSnap = await adminDb
+    .collection('students')
+    .where('activePlanId', '==', planId)
+    .limit(1)
+    .get()
+
+  if (!studentsWithPlanSnap.empty) {
+    return NextResponse.json({ error: 'plano_possui_assinaturas_ativas' }, { status: 400 })
+  }
+
   const plan = snap.data() as any
   const pagarmePlanId = typeof plan?.pagarmePlanId === 'string' && plan.pagarmePlanId ? plan.pagarmePlanId : undefined
 

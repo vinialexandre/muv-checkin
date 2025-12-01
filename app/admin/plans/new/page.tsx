@@ -30,8 +30,8 @@ const schema = yup.object({
   name: yup.string().trim().min(2,'Nome muito curto').required('Nome obrigatório'),
   priceStr: yup.string().required('Valor obrigatório').test('valid','Valor inválido', (val)=> !isNaN(parseBRL(val||'')) && parseBRL(val||'')>=0),
   billingInterval: yup.mixed<PlanBillingInterval>()
-    .oneOf(['day','week','month','year'])
-    .required('Intervalo obrigatório'),
+	    .oneOf(['day','month'])
+	    .required('Intervalo obrigatório'),
   billingIntervalCount: yup.string()
     .required('Quantidade obrigatória')
     .test('positive-int','Informe um número maior que zero',(v)=>{
@@ -129,11 +129,9 @@ export default function NewPlanPage() {
               <FormControl isInvalid={!!fieldState.error} isRequired flex="1" maxW="220px">
                 <FormLabel>Intervalo de cobrança</FormLabel>
                 <Select placeholder="Selecione" {...field}>
-                  <option value="day">Diário</option>
-                  <option value="week">Semanal</option>
-                  <option value="month">Mensal</option>
-                  <option value="year">Anual</option>
-                </Select>
+	                  <option value="day">Diário</option>
+	                  <option value="month">Mensal</option>
+	                </Select>
                 <FormErrorMessage>{fieldState.error?.message as any}</FormErrorMessage>
               </FormControl>
             )}/>
