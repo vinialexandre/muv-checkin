@@ -106,17 +106,12 @@ export default function SubscriptionTab({ mode, studentId, control, watch, plans
   const [subLoading, setSubLoading] = useState(false);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [invoicesLoading, setInvoicesLoading] = useState(false);
-  const [newPlanId, setNewPlanId] = useState<string>('');
   const [invoicesPage, setInvoicesPage] = useState(1);
   const [invoicesSize] = useState(10);
 
   const activePlanIdValue = watch('activePlanId');
   const selectedPlan = plans.find((plan) => plan.id === activePlanIdValue);
   const selectedPlanMethods = selectedPlan?.paymentMethods?.map((method) => formatPaymentMethod(method)).join(' · ');
-
-  useEffect(() => {
-    setNewPlanId(activePlanIdValue || '');
-  }, [activePlanIdValue]);
 
   useEffect(() => {
     if (!studentId || mode !== 'edit') return;
@@ -238,31 +233,8 @@ export default function SubscriptionTab({ mode, studentId, control, watch, plans
                   Esse aluno ainda não possui assinatura ativa. Gere o link de assinatura abaixo para que ele contrate um plano.
                 </Text>
               )}
-              <HStack spacing={3} wrap="wrap">
-                <Select maxW="280px" placeholder="Selecionar plano" value={newPlanId} onChange={(e) => setNewPlanId(e.target.value)}>
-                  {plans.map((plan) => (
-                    <option key={plan.id} value={plan.id}>{plan.name}</option>
-                  ))}
-                </Select>
-                <Button
-                  isLoading={subLoading}
-                  onClick={async () => {
-                    if (!studentId || !newPlanId) return;
-                    try {
-                      const res = await fetch(`/api/students/${studentId}/subscription/change-plan`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ newPlanId }) });
-                      const j = await res.json().catch(() => ({}));
-                      if (!res.ok || !j?.ok) throw new Error(j?.error || 'Falha na troca de plano');
-                      toast({ status: 'success', title: 'Plano atualizado' });
-                      await refreshSubscription();
-                    } catch (err: any) {
-                      toast({ status: 'error', title: 'Erro ao trocar plano', description: String(err?.message || err) });
-                    }
-                  }}
-                  isDisabled={!newPlanId || !subSummary}
-                >
-                  Aplicar
-                </Button>
-                <Button
+	              <HStack spacing={3} wrap="wrap">
+	                <Button
                   colorScheme="red"
                   variant="outline"
                   isLoading={subLoading}
