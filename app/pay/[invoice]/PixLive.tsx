@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState, useTransition } from "react"
+import Image from 'next/image'
 import PixActions from './PixActions'
 import RefreshButton from './RefreshButton'
 import { useRouter } from 'next/navigation'
@@ -103,7 +104,7 @@ export default function PixLive({ invoiceId, initialQr, initialCode, initialExpi
 
       {qrUrl ? (
         <div style={{ marginBottom: 8 }}>
-          <img src={qrUrl} alt="QR Pix" style={{ width: 240, height: 240 }} />
+          <Image src={qrUrl} alt="QR Pix" width={240} height={240} unoptimized />
         </div>
       ) : null}
       {code ? (

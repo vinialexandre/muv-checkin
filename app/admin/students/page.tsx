@@ -28,22 +28,28 @@ export default function StudentsPage() {
   const [filterName, setFilterName] = useState('');
   const [filterPlanId, setFilterPlanId] = useState<string>('');
   const [filterStatus, setFilterStatus] = useState<typeof filterAll | 'active' | 'inactive'>(filterAll);
+	  const [filterPaymentMethod, setFilterPaymentMethod] = useState<typeof filterAll | 'recorrente' | 'pix'>(filterAll);
   // rascunho (digita primeiro, aplica ao clicar em Buscar)
   const [draftName, setDraftName] = useState('');
   const [draftPlanId, setDraftPlanId] = useState<string>('');
   const [draftStatus, setDraftStatus] = useState<typeof filterAll | 'active' | 'inactive'>(filterAll);
+	  const [draftPaymentMethod, setDraftPaymentMethod] = useState<typeof filterAll | 'recorrente' | 'pix'>(filterAll);
 
 	  // scroll infinito
 	  const [displayCount, setDisplayCount] = useState(10);
 	  const [loadingMore, setLoadingMore] = useState(false);
 
-	  const getPaymentMethodLabel = (student: Student) => {
-	    const hasActiveCardSubscription =
-	      student.paymentPreference === 'credit_card' &&
-	      !!student.pagarmeSubscriptionId &&
-	      student.paymentStatus !== 'canceled';
-	    return hasActiveCardSubscription ? 'Recorrente (Pré-pago)' : 'Pix';
-	  };
+		  const isRecurringPayment = (student: Student) => {
+		    return (
+		      student.paymentPreference === 'credit_card' &&
+		      !!student.pagarmeSubscriptionId &&
+		      student.paymentStatus !== 'canceled'
+		    );
+		  };
+
+		  const getPaymentMethodLabel = (student: Student) => {
+		    return isRecurringPayment(student) ? 'Recorrente (Pré-pago)' : 'Pix';
+		  };
 
   useEffect(() => {
     const q = query(collection(db, 'students'), orderBy('name'));
@@ -68,13 +74,15 @@ export default function StudentsPage() {
 	const [isMobile] = useMediaQuery('(max-width: 780px)');
 
 
-  const filtered = useMemo(() => {
-    return students.filter(s =>
-      (!filterName || normalizeText(s.name||'').includes(normalizeText(filterName))) &&
-      (!filterPlanId || (s.activePlanId||'') === filterPlanId) &&
-      (filterStatus === filterAll || (filterStatus === 'active' ? !!s.active : !s.active))
-    );
-  }, [students, filterName, filterPlanId, filterStatus]);
+	  const filtered = useMemo(() => {
+	    return students.filter(s =>
+	      (!filterName || normalizeText(s.name||'').includes(normalizeText(filterName))) &&
+	      (!filterPlanId || (s.activePlanId||'') === filterPlanId) &&
+	      (filterStatus === filterAll || (filterStatus === 'active' ? !!s.active : !s.active)) &&
+	      (filterPaymentMethod === filterAll ||
+	        (filterPaymentMethod === 'recorrente' ? isRecurringPayment(s) : !isRecurringPayment(s)))
+	    );
+	  }, [students, filterName, filterPlanId, filterStatus, filterPaymentMethod]);
 
   const displayedStudents = useMemo(() => {
     return filtered.slice(0, displayCount);
@@ -82,9 +90,9 @@ export default function StudentsPage() {
 
   const hasMore = displayCount < filtered.length;
 
-  useEffect(() => {
-    setDisplayCount(10);
-  }, [filterName, filterPlanId, filterStatus]);
+	  useEffect(() => {
+	    setDisplayCount(10);
+	  }, [filterName, filterPlanId, filterStatus, filterPaymentMethod]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -132,14 +140,19 @@ export default function StudentsPage() {
             <Select placeholder="Todos os planos" value={draftPlanId} onChange={(e)=>setDraftPlanId(e.target.value)}>
               {plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </Select>
+	            <Select placeholder="Método de pagamento" value={draftPaymentMethod} onChange={(e)=>setDraftPaymentMethod((e.target.value||filterAll) as any)}>
+	              <option value="recorrente">Recorrente (Pré-pago)</option>
+	              <option value="pix">Pix</option>
+	              <option value="all">Todos</option>
+	            </Select>
             <Select placeholder="Status" value={draftStatus} onChange={(e)=>setDraftStatus((e.target.value||filterAll) as any)}>
               <option value="active">Ativo</option>
               <option value="inactive">Inativo</option>
               <option value="all">Todos</option>
             </Select>
             <HStack spacing={2} justify="flex-end">
-              <Button leftIcon={<Icon name='search' size={16} />} onClick={()=>{ setFilterName(draftName.trim()); setFilterPlanId(draftPlanId); setFilterStatus(draftStatus); }}>Buscar</Button>
-              <Button variant="outline" onClick={()=>{ setDraftName(''); setDraftPlanId(''); setDraftStatus(filterAll); setFilterName(''); setFilterPlanId(''); setFilterStatus(filterAll); }}>Limpar</Button>
+	              <Button leftIcon={<Icon name='search' size={16} />} onClick={()=>{ setFilterName(draftName.trim()); setFilterPlanId(draftPlanId); setFilterStatus(draftStatus); setFilterPaymentMethod(draftPaymentMethod); }}>Buscar</Button>
+	              <Button variant="outline" onClick={()=>{ setDraftName(''); setDraftPlanId(''); setDraftStatus(filterAll); setDraftPaymentMethod(filterAll); setFilterName(''); setFilterPlanId(''); setFilterStatus(filterAll); setFilterPaymentMethod(filterAll); }}>Limpar</Button>
             </HStack>
           </VStack>
         ) : (
@@ -148,13 +161,18 @@ export default function StudentsPage() {
             <Select placeholder="Todos os planos" value={draftPlanId} onChange={(e)=>setDraftPlanId(e.target.value)} maxW="240px">
               {plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </Select>
+	            <Select placeholder="Método de pagamento" value={draftPaymentMethod} onChange={(e)=>setDraftPaymentMethod((e.target.value||filterAll) as any)} maxW="220px">
+	              <option value="recorrente">Recorrente (Pré-pago)</option>
+	              <option value="pix">Pix</option>
+	              <option value="all">Todos</option>
+	            </Select>
             <Select placeholder="Status" value={draftStatus} onChange={(e)=>setDraftStatus((e.target.value||filterAll) as any)} maxW="180px">
               <option value="active">Ativo</option>
               <option value="inactive">Inativo</option>
               <option value="all">Todos</option>
             </Select>
-            <Button leftIcon={<Icon name='search' size={16} />} onClick={()=>{ setFilterName(draftName.trim()); setFilterPlanId(draftPlanId); setFilterStatus(draftStatus); }}>Buscar</Button>
-            <Button variant="outline" onClick={()=>{ setDraftName(''); setDraftPlanId(''); setDraftStatus(filterAll); setFilterName(''); setFilterPlanId(''); setFilterStatus(filterAll); }}>Limpar</Button>
+	            <Button leftIcon={<Icon name='search' size={16} />} onClick={()=>{ setFilterName(draftName.trim()); setFilterPlanId(draftPlanId); setFilterStatus(draftStatus); setFilterPaymentMethod(draftPaymentMethod); }}>Buscar</Button>
+	            <Button variant="outline" onClick={()=>{ setDraftName(''); setDraftPlanId(''); setDraftStatus(filterAll); setDraftPaymentMethod(filterAll); setFilterName(''); setFilterPlanId(''); setFilterStatus(filterAll); setFilterPaymentMethod(filterAll); }}>Limpar</Button>
           </HStack>
         )}
 

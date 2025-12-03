@@ -1,4 +1,5 @@
 import { getInvoice, listChargesByInvoice, PagarmeCharge } from '@/lib/payments/pagarme'
+import Image from 'next/image'
 import PixActions from './PixActions'
 import PixLive from './PixLive'
 
@@ -102,7 +103,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ invoic
                   <>
                     {pix.qr_code_url ? (
                       <div style={{ marginBottom: 8 }}>
-                        <img src={pix.qr_code_url} alt="QR Pix" style={{ width: 240, height: 240 }} />
+                        <Image src={pix.qr_code_url} alt="QR Pix" width={240} height={240} unoptimized />
                       </div>
                     ) : null}
                     {pix.qr_code ? (
