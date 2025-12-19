@@ -1,50 +1,39 @@
-import Link from 'next/link'
-import { listInvoicesBySubscription, PagarmeInvoice } from '@/lib/payments/pagarme'
-
-function brl(amount: number) {
-  try { return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((amount||0)/100) } catch { return `${(amount||0)/100}` }
-}
+import { getSubscription } from '@/lib/payments/pagarme'
+import { formatInvoiceStatus } from '@/lib/utils/formatters'
 
 export default async function SubscriptionInvoicesPage({ params }: { params: Promise<{ subscription: string }> }) {
   const { subscription: subscriptionId } = await params
-  const invoices = await listInvoicesBySubscription({ subscriptionId })
-  const rows = (Array.isArray(invoices) ? invoices : []) as PagarmeInvoice[]
+  const subscription = await getSubscription({ subscriptionId }).catch(() => undefined)
 
   return (
-    <div style={{ padding: 24, maxWidth: 880 }}>
-      <h1>Faturas da assinatura</h1>
-      <div style={{ marginBottom: 12 }}>
-        <strong>Assinatura:</strong> {subscriptionId}
-      </div>
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', padding: 24 }}>
+      <div style={{ width: '100%', maxWidth: 880 }}>
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 16, boxShadow: '0 4px 6px rgba(16,24,40,.1)', padding: 48 }}>
+          <h1 style={{ margin: 0, fontSize: 32, marginBottom: 32, textAlign: 'center', color: '#111827' }}>Assinatura Confirmada</h1>
 
-      {rows.length === 0 ? (
-        <div><em>Nenhuma fatura encontrada.</em></div>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left', padding: 8 }}>Fatura</th>
-              <th style={{ textAlign: 'left', padding: 8 }}>Status</th>
-              <th style={{ textAlign: 'left', padding: 8 }}>Valor</th>
-              <th style={{ textAlign: 'left', padding: 8 }}>Vencimento</th>
-              <th style={{ textAlign: 'left', padding: 8 }}>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((inv) => (
-              <tr key={inv.id}>
-                <td style={{ padding: 8 }}>{inv.id}</td>
-                <td style={{ padding: 8 }}>{inv.status}</td>
-                <td style={{ padding: 8 }}>{brl(inv.amount)}</td>
-                <td style={{ padding: 8 }}>{inv.due_at ? new Date(inv.due_at).toLocaleDateString('pt-BR') : '-'}</td>
-                <td style={{ padding: 8 }}>
-                  <Link href={`/pay/${inv.id}`}>Pagar/Ver</Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 28, fontSize: 16 }}>
+            <div><strong>ID:</strong> {subscriptionId}</div>
+            <div><strong>Status:</strong> {formatInvoiceStatus(subscription?.status)}</div>
+            {subscription?.plan?.name && <div><strong>Plano:</strong> {subscription.plan.name}</div>}
+            {subscription?.created_at && <div><strong>Criada em:</strong> {new Date(subscription.created_at).toLocaleDateString('pt-BR')}</div>}
+          </div>
+
+          {subscription?.current_period_start && subscription?.current_period_end && (
+            <div style={{ padding: 20, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, marginBottom: 32 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, fontSize: 16 }}>
+                <div><strong>Início do período:</strong> {new Date(subscription.current_period_start).toLocaleDateString('pt-BR')}</div>
+                <div><strong>Fim do período:</strong> {new Date(subscription.current_period_end).toLocaleDateString('pt-BR')}</div>
+              </div>
+            </div>
+          )}
+
+          <div style={{ padding: 24, background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, textAlign: 'center' }}>
+            <p style={{ margin: 0, fontSize: 18, color: '#166534', fontWeight: 500 }}>
+              Sua assinatura foi confirmada com sucesso. Você pode fechar esta aba agora.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

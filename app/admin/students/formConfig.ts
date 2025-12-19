@@ -177,6 +177,7 @@ export const studentFormSchema = yup.object({
     .uppercase()
     .min(2, "Pais obrigatorio")
     .required("Pais obrigatorio"),
+  billingDay: yup.number().optional(),
 });
 
 export type StudentFormData = yup.InferType<typeof studentFormSchema>;
@@ -217,6 +218,7 @@ export const emptyStudentFormValues: StudentFormData = {
   billingCity: "",
   billingState: "",
   billingCountry: "BR",
+  billingDay: undefined,
 };
 
 type BuildDefaultsResult = {
@@ -261,8 +263,8 @@ export function buildStudentFormValues(student?: Partial<Student> | null): Build
   const whatsapp = student.whatsapp
     ? String(student.whatsapp)
     : student.phone
-    ? String(student.phone)
-    : "";
+      ? String(student.phone)
+      : "";
   values.whatsapp = whatsapp;
 
   values.guardianName = student.guardianName ? String(student.guardianName) : "";
@@ -313,6 +315,9 @@ export function buildStudentFormValues(student?: Partial<Student> | null): Build
   values.billingCity = billingAddress?.city ? String(billingAddress.city) : "";
   values.billingState = billingAddress?.state ? String(billingAddress.state).toUpperCase() : "";
   values.billingCountry = billingAddress?.country ? String(billingAddress.country).toUpperCase() : "BR";
+
+  const rawBillingDay = Number((student as any).billingDay);
+  values.billingDay = rawBillingDay >= 1 && rawBillingDay <= 28 ? rawBillingDay : undefined;
 
   const consentTs = student.billingConsentAcceptedAt;
   let consentDate: Date | null = null;

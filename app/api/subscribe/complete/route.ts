@@ -9,12 +9,20 @@ const isValidPaymentMethod = (method: unknown): method is 'pix' | 'boleto' | 'cr
   method === 'pix' || method === 'boleto' || method === 'credit_card'
 
 export async function POST(req: NextRequest) {
+  let body: any
+  try {
+    body = await req.json()
+  } catch (parseError: any) {
+    console.error('[subscribe/complete] Erro ao parsear JSON:', parseError)
+    return NextResponse.json({ error: 'json_invalido' }, { status: 400 })
+  }
+
   try {
     if (!adminDb) {
       return NextResponse.json({ error: 'admin_sdk_nao_configurado' }, { status: 500 })
     }
 
-    const { token, paymentMethod, billingContact, billingAddress, planId: requestedPlanId, cardToken, cardHash } = await req.json()
+    const { token, paymentMethod, billingContact, billingAddress, planId: requestedPlanId, cardToken, cardHash } = body
 
     if (!token) {
       return NextResponse.json({ error: 'token_obrigatorio' }, { status: 400 })
@@ -35,6 +43,8 @@ export async function POST(req: NextRequest) {
     }
 
     const studentId = String(invite.studentId)
+    const rawBillingDay = Number(invite?.billingDay)
+    const billingDay = rawBillingDay >= 1 && rawBillingDay <= 28 ? rawBillingDay : undefined
 
     const allowedPlanIds: string[] = Array.isArray(invite?.allowedPlanIds) && invite.allowedPlanIds.length
       ? invite.allowedPlanIds.map((x: any) => String(x))
@@ -140,6 +150,16 @@ export async function POST(req: NextRequest) {
       cardId = createdCard.cardId
     }
 
+    let startAt: string | undefined
+    if (billingDay && billingDay >= 1 && billingDay <= 28) {
+      const now = new Date()
+      const currentYear = now.getFullYear()
+      const currentMonth = now.getMonth()
+      const candidate = new Date(currentYear, currentMonth, billingDay, 0, 0, 0, 0)
+      const effective = candidate <= now ? new Date(currentYear, currentMonth + 1, billingDay, 0, 0, 0, 0) : candidate
+      startAt = effective.toISOString()
+    }
+
     const created = await createSubscription({
       customerId: ensured.customerId,
       planId: String(plan.pagarmePlanId),
@@ -158,6 +178,8 @@ export async function POST(req: NextRequest) {
         state: addressState,
         country: addressCountry,
       } : undefined,
+      billingDay,
+      startAt,
     })
 
     const contactToSave: Record<string, any> = {
@@ -191,6 +213,9 @@ export async function POST(req: NextRequest) {
       updatedAt: new Date().toISOString(),
       billingContact: contactToSave,
     }
+    if (billingDay) {
+      updatePayload.billingDay = billingDay
+    }
     if (hasAddressData) {
       updatePayload.billingAddress = addressToSaveCandidate
     }
@@ -200,9 +225,41 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, subscriptionId: created.subscriptionId, invoiceId: created.invoiceId })
   } catch (e: any) {
-    const message = typeof e?.message === 'string' ? e.message : 'erro_generico'
-    return NextResponse.json({ error: message }, { status: 500 })
+    console.error('[subscribe/complete] Erro:', e?.message || e)
+    const raw = typeof e?.message === 'string' ? e.message : String(e || '')
+    let errorCode = 'erro_generico'
+    let status = 500
+    let details = raw
+
+    if (raw === 'pagarme_api_key_missing') {
+      errorCode = 'config_pagamento_indisponivel'
+    } else if (raw === 'pagarme_create_customer_failed') {
+      errorCode = 'falha_criar_cliente_pagador'
+    } else if (raw === 'pagarme_create_card_failed') {
+      errorCode = 'falha_cadastrar_cartao'
+    } else if (raw === 'pagarme_create_subscription_failed') {
+      errorCode = 'falha_criar_assinatura_gateway'
+    } else if (raw.includes('pagarme_http_')) {
+      const httpDetails = raw.split(': ').slice(1).join(': ')
+      details = httpDetails || raw
+      if (raw.includes('pagarme_http_402')) {
+        errorCode = 'pagamento_recusado'
+        status = 400
+      } else if (raw.includes('pagarme_http_400')) {
+        errorCode = 'dados_pagamento_invalidos'
+        status = 400
+      } else if (raw.includes('pagarme_http_401') || raw.includes('pagarme_http_403')) {
+        errorCode = 'pagamento_nao_autorizado'
+        status = 400
+      } else {
+        errorCode = 'falha_processar_pagamento'
+        status = 502
+      }
+    }
+
+    return NextResponse.json({ ok: false, error: errorCode, details }, { status })
   }
 }
 
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'

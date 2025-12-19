@@ -16,7 +16,10 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
     }
     if (!customerId) return NextResponse.json({ ok: true, customerId: null, subscription: null })
     const subs = await listSubscriptionsByCustomer({ customerId, page: 1, size: 20 })
-    const active = Array.isArray(subs) ? subs.find((s: PagarmeSubscription) => String(s.status || '').toLowerCase() !== 'canceled') : undefined
+    const active = Array.isArray(subs) ? subs.find((s: PagarmeSubscription) => {
+      const status = String(s.status || '').toLowerCase()
+      return status !== 'canceled' && status !== 'failed'
+    }) : undefined
     return NextResponse.json({ ok: true, customerId, subscription: active || null })
   } catch (e: any) {
     return NextResponse.json({ error: String(e?.message || e) }, { status: 500 })

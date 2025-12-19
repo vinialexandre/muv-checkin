@@ -13,6 +13,8 @@ export async function POST(req: NextRequest) {
     const allowedPlanIds = Array.isArray(inputAllowed)
       ? Array.from(new Set(inputAllowed.map((x: any) => String(x)).filter(Boolean)))
       : []
+    const rawBillingDay = Number(body?.billingDay)
+    const billingDay = rawBillingDay >= 1 && rawBillingDay <= 28 ? rawBillingDay : undefined
 
     if (!studentId || !planId) {
       return NextResponse.json({ error: 'studentId e planId são obrigatórios' }, { status: 400 })
@@ -22,7 +24,7 @@ export async function POST(req: NextRequest) {
 
     const token = crypto.randomUUID().replace(/-/g, '')
     const docRef = adminDb.collection('subscription_invites').doc(token)
-    await docRef.set({
+    const inviteData: Record<string, any> = {
       token,
       studentId,
       planId,
@@ -30,7 +32,11 @@ export async function POST(req: NextRequest) {
       allowPlanChange,
       createdAt: new Date().toISOString(),
       disabled: false,
-    })
+    }
+    if (billingDay) {
+      inviteData.billingDay = billingDay
+    }
+    await docRef.set(inviteData)
 
     const urlPath = `/subscribe/${token}`
     return NextResponse.json({ ok: true, token, urlPath })

@@ -25,6 +25,18 @@ const colors = {
     800: '#383838',
     900: '#1f1f1f',
   },
+  yellow: {
+    50: '#fffef5',
+    100: '#fffae6',
+    200: '#fff5cc',
+    300: '#fff0b3',
+    400: '#ffe680',
+    500: '#fff400',
+    600: '#e6dc00',
+    700: '#ccc300',
+    800: '#b3aa00',
+    900: '#998000',
+  },
 };
 
 const components = {
@@ -35,14 +47,16 @@ const components = {
       primary: {
         bg: 'brand.secondary',
         color: 'brand.primary',
-        _hover: { bg: 'gray.900' },
+        _hover: { bg: 'gray.900', _loading: { bg: 'brand.secondary' } },
         _active: { bg: 'gray.800' },
+        _loading: { _hover: { bg: 'brand.secondary' } },
       },
       secondary: {
         bg: 'brand.accent',
         color: 'brand.secondary',
-        _hover: { bg: 'yellow.500' },
+        _hover: { bg: 'yellow.500', _loading: { bg: 'brand.accent' } },
         _active: { bg: 'yellow.600' },
+        _loading: { _hover: { bg: 'brand.accent' } },
       },
       outline: {
         border: '1px solid',
@@ -54,6 +68,19 @@ const components = {
         bg: 'transparent',
         color: 'brand.secondary',
         _hover: { bg: 'gray.100' },
+      },
+      solid: (props: any) => {
+        const { colorScheme: c } = props
+        if (c === 'yellow') {
+          return {
+            bg: 'yellow.500',
+            color: 'black',
+            _hover: { bg: 'yellow.600', _loading: { bg: 'yellow.500' } },
+            _active: { bg: 'yellow.700' },
+            _loading: { _hover: { bg: 'yellow.500' } },
+          }
+        }
+        return {}
       },
     },
   },

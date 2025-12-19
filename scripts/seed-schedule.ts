@@ -91,7 +91,6 @@ async function main() {
   });
 
   await batch.commit();
-  console.log('Agenda seeds criada/atualizada com sucesso.');
 }
 
 main().catch((error) => {

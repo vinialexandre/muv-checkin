@@ -26,6 +26,8 @@ export async function POST(req: NextRequest) {
       ? (data as any).allowedPlanIds
       : [String((data as any).planId)]
     const allowPlanChange = Boolean((data as any)?.allowPlanChange)
+    const rawBillingDay = Number((data as any)?.billingDay)
+    const billingDay = rawBillingDay >= 1 && rawBillingDay <= 28 ? rawBillingDay : undefined
 
     const studentId = String(data.studentId)
     const studentSnap = await db.collection('students').doc(studentId).get()
@@ -47,6 +49,7 @@ export async function POST(req: NextRequest) {
       planId: data.planId,
       allowedPlanIds: allowed,
       allowPlanChange,
+      billingDay,
       studentData,
       plans: filteredPlans
     })

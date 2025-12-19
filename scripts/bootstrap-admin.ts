@@ -19,7 +19,6 @@ async function main() {
     user = await auth.createUser({ email, password, emailVerified: true, displayName: 'Admin' });
   }
   await auth.setCustomUserClaims(user.uid, { admin: true });
-  console.log(`Admin ready. Email: ${email}  Password: ${password}  UID: ${user.uid}`);
 }
 
 main().catch((e)=>{ console.error(e); process.exit(1); });

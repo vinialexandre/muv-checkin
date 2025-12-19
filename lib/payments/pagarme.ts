@@ -178,6 +178,8 @@ export type CreateSubscriptionArgs = {
     state: string
     country: string
   }
+	  billingDay?: number
+	  startAt?: string
 }
 
 export type CreateSubscriptionResult = {
@@ -194,6 +196,9 @@ export async function createSubscription(args: CreateSubscriptionArgs, env?: Par
     customer_id: args.customerId,
     payment_method: mappedMethod,
   }
+	  if (args.startAt) {
+	    payload.start_at = args.startAt
+	  }
   if (args.paymentMethod === 'pix') {
     payload.cash = { type: 'pix' }
   }

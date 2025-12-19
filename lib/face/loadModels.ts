@@ -24,18 +24,17 @@ export async function loadFaceModels(basePath = process.env.NEXT_PUBLIC_FACE_MOD
   if (isFaceReady()) return true;
   if (loadPromise) return loadPromise;
 
-  console.log('🔄 Iniciando carregamento dos modelos de face-api...');
   loadPromise = (async () => {
     try {
       const fa = await getFaceApi();
       const tf = (fa as any).tf;
       if (tf) {
-        const desired = process.env.NEXT_PUBLIC_TF_BACKEND as ('webgl'|'cpu'|undefined);
-        if (desired) { try { await tf.setBackend(desired); await tf.ready(); } catch {} }
-        if (!tf.getBackend()) { try { await tf.setBackend('webgl'); await tf.ready(); } catch {} }
-        if (!tf.getBackend()) { try { await tf.setBackend('cpu'); await tf.ready(); } catch {} }
+        const desired = process.env.NEXT_PUBLIC_TF_BACKEND as ('webgl' | 'cpu' | undefined);
+        if (desired) { try { await tf.setBackend(desired); await tf.ready(); } catch { } }
+        if (!tf.getBackend()) { try { await tf.setBackend('webgl'); await tf.ready(); } catch { } }
+        if (!tf.getBackend()) { try { await tf.setBackend('cpu'); await tf.ready(); } catch { } }
       }
-    } catch {}
+    } catch { }
 
     const cdnHint = process.env.NEXT_PUBLIC_FACE_MODELS_PATH && process.env.NEXT_PUBLIC_FACE_MODELS_PATH.startsWith('http')
       ? process.env.NEXT_PUBLIC_FACE_MODELS_PATH
@@ -63,9 +62,7 @@ export async function loadFaceModels(basePath = process.env.NEXT_PUBLIC_FACE_MOD
 
     for (const p of candidates) {
       try {
-        console.log(`🔄 Tentando carregar modelos de: ${p}`);
         await tryLoad(p);
-        console.log(`✅ Modelos carregados com sucesso de: ${p}`);
         if (p !== basePath) console.info('Loaded face models from', p);
         return true;
       } catch (e) {

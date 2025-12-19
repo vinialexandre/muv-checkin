@@ -54,6 +54,68 @@ type PlanOption = {
   pagarmePlanId?: string
 }
 
+function mapSubscriptionErrorMessage(raw: string): string {
+  const code = String(raw || '').trim()
+  if (!code) return 'Nao foi possivel criar a assinatura. Tente novamente.'
+  if (code === 'dados_cobranca_incompletos') {
+    return 'Dados de cobranca incompletos. Confira nome, email, CPF, telefone e endereco de cobranca.'
+  }
+  if (code === 'dados_cartao_incompletos') {
+    return 'Dados do cartao incompletos. Preencha numero, nome do titular, validade e CVV.'
+  }
+  if (
+    code === 'cartao_nao_tokenizado' ||
+    code === 'falha_tokenizar_cartao' ||
+    code === 'pagarme_tokenize_failed' ||
+    code === 'pagarme_card_token_missing'
+  ) {
+    return 'Nao foi possivel processar os dados do cartao. Tente novamente ou use outro cartao.'
+  }
+  if (code === 'metodo_pagamento_nao_permitido_no_plano') {
+    return 'Este plano nao aceita o metodo de pagamento selecionado. Escolha outro metodo ou fale com a recepcao.'
+  }
+  if (code === 'plano_nao_permitido' || code === 'plano_nao_encontrado') {
+    return 'Plano nao disponivel para este link. Peça um novo link de assinatura para a academia.'
+  }
+  if (code === 'config_pagamento_indisponivel' || code === 'admin_sdk_nao_configurado') {
+    return 'Configuracao de pagamento indisponivel no momento. Tente novamente mais tarde ou fale com a recepcao.'
+  }
+  if (code === 'falha_criar_cliente_pagador') {
+    return 'Nao foi possivel cadastrar os dados do pagador. Tente novamente.'
+  }
+  if (code === 'falha_cadastrar_cartao') {
+    return 'Nao foi possivel cadastrar o cartao. Verifique os dados ou use outro cartao.'
+  }
+  if (code === 'falha_criar_assinatura_gateway') {
+    return 'Nao foi possivel criar a assinatura no processador de pagamentos. Tente novamente.'
+  }
+  if (code === 'pagamento_recusado') {
+    return 'Pagamento recusado pelo banco ou pela operadora do cartao. Use outro cartao ou entre em contato com o banco.'
+  }
+  if (code === 'dados_pagamento_invalidos') {
+    return 'Dados de pagamento invalidos. Confira os dados do cartao e do endereco de cobranca.'
+  }
+  if (code === 'pagamento_nao_autorizado') {
+    return 'Pagamento nao autorizado. Verifique os dados do cartao ou tente outro metodo.'
+  }
+  if (code === 'falha_processar_pagamento') {
+    return 'Nao foi possivel processar o pagamento. Tente novamente em alguns minutos.'
+  }
+  if (code === 'payload_invalido') {
+    return 'Nao foi possivel processar o pagamento. Recarregue a pagina e tente novamente.'
+  }
+  if (code === 'convite_invalido' || code === 'convite_desabilitado') {
+    return 'Este link de assinatura nao e mais valido. Peça um novo link para a academia.'
+  }
+  if (code === 'pagarme_public_key_missing') {
+    return 'Configuracao de cartao de credito indisponivel. Tente novamente mais tarde ou fale com a recepcao.'
+  }
+  if (code.startsWith('pagarme_http_')) {
+    return 'Nao foi possivel processar o pagamento no momento. Tente novamente ou use outro metodo de pagamento.'
+  }
+  return `Nao foi possivel criar a assinatura. Tente novamente ou fale com a recepcao. (codigo: ${code})`
+}
+
 const schema = yup.object({
   paymentMethod: yup.mixed<PaymentMethod>().oneOf(['pix', 'boleto', 'credit_card'], 'Selecione um método de pagamento').required('Selecione um método de pagamento'),
   billingName: yup.string().trim().min(3, 'Nome muito curto').required('Nome obrigatório'),
@@ -150,6 +212,7 @@ export default function SubscribeTokenPage() {
   const [allowedPlans, setAllowedPlans] = useState<PlanOption[]>([])
   const [selectedPlanId, setSelectedPlanId] = useState('')
   const [loadingCep, setLoadingCep] = useState(false)
+  const [billingDay, setBillingDay] = useState<number | undefined>(undefined)
 
   const {
     control,
@@ -196,12 +259,9 @@ export default function SubscribeTokenPage() {
   }, [setValue])
 
   useEffect(() => {
-    console.log('CEP mudou:', currentZipCode)
     if (currentZipCode) {
       const cleanCep = onlyDigits(currentZipCode)
-      console.log('CEP limpo:', cleanCep, 'length:', cleanCep.length)
       if (cleanCep.length === 8) {
-        console.log('Chamando searchCep')
         searchCep(currentZipCode)
       }
     }
@@ -246,6 +306,8 @@ export default function SubscribeTokenPage() {
 
         setStudentName(studentData?.name || '')
         setAllowedPlans(plans)
+        const rawBillingDay = Number(json.billingDay)
+        setBillingDay(rawBillingDay >= 1 && rawBillingDay <= 28 ? rawBillingDay : undefined)
 
         const defaultId = plans.find((p: any) => p.id === basePlanId)?.id || plans[0]?.id || ''
         setSelectedPlanId(defaultId)
@@ -372,7 +434,8 @@ export default function SubscribeTokenPage() {
       else if (subscriptionId) router.push(`/invoices/${subscriptionId}`)
       else router.push('/')
     } catch (e: any) {
-      const message = String(e?.message || e || 'Erro desconhecido')
+      const raw = String(e?.message || e || '')
+      const message = mapSubscriptionErrorMessage(raw)
       setSubmitError(message)
       toast({ title: 'Erro ao criar assinatura', description: message, status: 'error' })
     }
@@ -424,8 +487,8 @@ export default function SubscribeTokenPage() {
             {allowedPlans.length > 1 ? (
               <Stack spacing={1}>
                 <Text fontSize="xs" color="gray.600" textTransform="uppercase" fontWeight={600}>Plano</Text>
-                <Select value={selectedPlanId} onChange={(e)=>setSelectedPlanId(e.target.value)} size="sm">
-                  {allowedPlans.map((p)=> (
+                <Select value={selectedPlanId} onChange={(e) => setSelectedPlanId(e.target.value)} size="sm">
+                  {allowedPlans.map((p) => (
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
                 </Select>
@@ -435,6 +498,16 @@ export default function SubscribeTokenPage() {
                 <Text fontSize="xs" color="gray.600" textTransform="uppercase" fontWeight={600}>Plano</Text>
                 <Text fontSize="md" fontWeight={600}>{planName || 'Plano'}</Text>
               </Stack>
+            )}
+            {billingDay && (
+              <>
+                <Divider display={{ base: 'block', md: 'none' }} />
+                <Divider orientation="vertical" h="50px" display={{ base: 'none', md: 'block' }} />
+                <Stack spacing={1}>
+                  <Text fontSize="xs" color="gray.600" textTransform="uppercase" fontWeight={600}>Dia de vencimento</Text>
+                  <Text fontSize="md" fontWeight={600}>Todo dia {billingDay}</Text>
+                </Stack>
+              </>
             )}
           </Stack>
         </Box>

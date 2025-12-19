@@ -105,9 +105,6 @@ export default function CheckInsPage() {
       const filtered = selectedPlanId ? filteredByName.filter(c => (c as CheckInWithStudent).planId === selectedPlanId) : filteredByName;
       setCheckIns(filtered);
 
-      // Debug: log para verificar dados
-      console.log('Plans loaded:', currentPlans.length);
-      console.log('CheckIns with plans:', checkInsData.slice(0, 3).map(c => ({ student: c.studentName, plan: c.planName })));
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       toast({ title: 'Erro ao carregar dados', status: 'error' });

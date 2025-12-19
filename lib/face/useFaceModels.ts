@@ -13,18 +13,17 @@ export function useFaceModels() {
     }
 
     let cancelled = false;
-    
+
     const load = async () => {
       setLoading(true);
       setError(undefined);
-      
+
       try {
         console.log('🔄 Hook useFaceModels: Iniciando carregamento...');
         await loadFaceModels();
-        
+
         if (!cancelled) {
           setReady(true);
-          console.log('✅ Hook useFaceModels: Modelos carregados com sucesso');
         }
       } catch (e: any) {
         console.error('❌ Hook useFaceModels: Erro ao carregar modelos:', e);
