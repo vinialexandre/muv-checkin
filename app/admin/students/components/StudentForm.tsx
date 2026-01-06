@@ -6,12 +6,13 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import { doc, getDoc, getDocs, collection } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { buildStudentFormValues, emptyStudentFormValues, StudentFormData, studentFormSchema } from '@/app/admin/students/formConfig';
+import { useCepLookup } from '@/lib/hooks/useCepLookup';
 import { useStudentBiometry } from './useStudentBiometry';
 import { useStudentSave } from './useStudentSave';
 import StudentFormTabs from './StudentFormTabs';
 import { useRouter } from 'next/navigation';
 
-type Plan = { id: string; name: string; price?: number; planSyncStatus?: string; pagarmePlanId?: string; active?: boolean; paymentMethods?: Array<'pix'|'boleto'|'credit_card'>; };
+type Plan = { id: string; name: string; price?: number; planSyncStatus?: string; pagarmePlanId?: string; active?: boolean; paymentMethods?: Array<'pix' | 'boleto' | 'credit_card'>; };
 
 interface StudentFormProps {
   mode: 'new' | 'edit';
@@ -29,6 +30,7 @@ export default function StudentForm({ mode, studentId }: StudentFormProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmIdx, setConfirmIdx] = useState<number | null>(null);
   const [deletingPhoto, setDeletingPhoto] = useState(false);
+  const [loadingCep, setLoadingCep] = useState(false);
   const cancelRef = useRef<HTMLButtonElement | null>(null);
 
   const currencyFormatter = useMemo(() => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }), []);
@@ -51,6 +53,22 @@ export default function StudentForm({ mode, studentId }: StudentFormProps) {
   const activePlanIdValue = watch('activePlanId');
   const jiuBeltValue = watch('jiuJitsuBelt');
   const jiuDegreeValue = watch('jiuJitsuDegree');
+  const billingZipCodeValue = watch('billingZipCode');
+
+  const cepLookup = useCepLookup({
+    cep: String(billingZipCodeValue || ''),
+    onAddress: (addr) => {
+      setValue('billingStreet', addr.street || '', { shouldDirty: true, shouldValidate: true });
+      setValue('billingDistrict', addr.district || '', { shouldDirty: true, shouldValidate: true });
+      setValue('billingCity', addr.city || '', { shouldDirty: true, shouldValidate: true });
+      setValue('billingState', addr.state || '', { shouldDirty: true, shouldValidate: true });
+      setValue('billingCountry', addr.country || 'BR', { shouldDirty: true, shouldValidate: true });
+    },
+  });
+
+  useEffect(() => {
+    setLoadingCep(cepLookup.loading);
+  }, [cepLookup.loading]);
 
   useEffect(() => {
     if (studentNameValue && !billingNameValue) {
@@ -187,6 +205,7 @@ export default function StudentForm({ mode, studentId }: StudentFormProps) {
         tabIndex={tabIndex}
         setTabIndex={setTabIndex}
         stopVideo={biometry.stopVideo}
+        loadingCep={loadingCep}
       />
 
       <HStack justify="flex-end">

@@ -19,6 +19,8 @@ import {
   Heading,
   HStack,
   Input,
+  InputGroup,
+  InputRightElement,
   Radio,
   RadioGroup,
   Spinner,
@@ -31,16 +33,7 @@ import {
 } from '@chakra-ui/react'
 import { IMaskInput } from 'react-imask'
 import { Icon } from '@/components/Icon'
-
-type CepResponse = {
-  cep: string
-  logradouro: string
-  complemento: string
-  bairro: string
-  localidade: string
-  uf: string
-  erro?: boolean
-}
+import { useCepLookup } from '@/lib/hooks/useCepLookup'
 
 const onlyDigits = (value?: string) => String(value || '').replace(/\D/g, '')
 
@@ -230,42 +223,20 @@ export default function SubscribeTokenPage() {
   const currentMethod = watch('paymentMethod')
   const currentZipCode = watch('billingZipCode')
 
-  const searchCep = useCallback(async (cep: string) => {
-    const cleanCep = onlyDigits(cep)
-
-    if (cleanCep.length !== 8) return
-
-    setLoadingCep(true)
-
-    try {
-      const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`)
-      const data: CepResponse = await response.json()
-
-      if (data.erro) {
-        throw new Error('CEP não encontrado')
-      }
-
-      setValue('billingStreet', data.logradouro || '')
-      setValue('billingDistrict', data.bairro || '')
-      setValue('billingCity', data.localidade || '')
-      setValue('billingState', data.uf || '')
-      setValue('billingCountry', 'BR')
-
-    } catch (error) {
-      console.error('Erro ao buscar CEP:', error)
-    } finally {
-      setLoadingCep(false)
-    }
-  }, [setValue])
+  const cepLookup = useCepLookup({
+    cep: String(currentZipCode || ''),
+    onAddress: (addr) => {
+      setValue('billingStreet', addr.street || '')
+      setValue('billingDistrict', addr.district || '')
+      setValue('billingCity', addr.city || '')
+      setValue('billingState', addr.state || '')
+      setValue('billingCountry', addr.country || 'BR')
+    },
+  })
 
   useEffect(() => {
-    if (currentZipCode) {
-      const cleanCep = onlyDigits(currentZipCode)
-      if (cleanCep.length === 8) {
-        searchCep(currentZipCode)
-      }
-    }
-  }, [currentZipCode, searchCep])
+    setLoadingCep(cepLookup.loading)
+  }, [cepLookup.loading])
 
   useEffect(() => {
     let active = true
@@ -658,10 +629,22 @@ export default function SubscribeTokenPage() {
                   render={({ field }) => (
                     <FormControl isInvalid={!!errors.billingZipCode} isRequired>
                       <FormLabel fontSize="sm">CEP</FormLabel>
-                      <HStack>
-                        <Input size="md" as={IMaskInput as any} mask="00000-000" placeholder="00000-000" value={field.value} onAccept={(val: string) => field.onChange(val)} />
-                        {loadingCep && <Spinner size="sm" />}
-                      </HStack>
+                      <InputGroup>
+                        <Input
+                          size="md"
+                          as={IMaskInput as any}
+                          mask="00000-000"
+                          placeholder="00000-000"
+                          value={field.value}
+                          onAccept={(val: string) => field.onChange(val)}
+                          pr="2.5rem"
+                        />
+                        {loadingCep && (
+                          <InputRightElement pointerEvents="none">
+                            <Spinner size="sm" />
+                          </InputRightElement>
+                        )}
+                      </InputGroup>
                       <FormErrorMessage fontSize="xs">{errors.billingZipCode?.message}</FormErrorMessage>
                     </FormControl>
                   )}

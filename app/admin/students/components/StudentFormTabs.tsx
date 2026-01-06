@@ -8,7 +8,7 @@ import BillingTab from './tabs/BillingTab';
 import TechnicalSheetTab from './tabs/TechnicalSheetTab';
 import BiometryTab from './tabs/BiometryTab';
 
-type Plan = { id: string; name: string; price?: number; paymentMethods?: Array<'pix'|'boleto'|'credit_card'>; };
+type Plan = { id: string; name: string; price?: number; paymentMethods?: Array<'pix' | 'boleto' | 'credit_card'>; };
 
 interface StudentFormTabsProps {
   mode: 'new' | 'edit';
@@ -34,6 +34,7 @@ interface StudentFormTabsProps {
   tabIndex: number;
   setTabIndex: (idx: number) => void;
   stopVideo: () => void;
+  loadingCep: boolean;
 }
 
 const isMinor = (birthDate: string) => {
@@ -72,7 +73,8 @@ export default function StudentFormTabs(props: StudentFormTabsProps) {
     openConfirm,
     tabIndex,
     setTabIndex,
-    stopVideo
+    stopVideo,
+    loadingCep
   } = props;
 
   const birthDateValue = watch('birthDate');
@@ -115,7 +117,7 @@ export default function StudentFormTabs(props: StudentFormTabsProps) {
         </TabPanel>
 
         <TabPanel>
-          <BillingTab control={control} />
+          <BillingTab control={control} loadingCep={loadingCep} />
         </TabPanel>
 
         <TabPanel>
