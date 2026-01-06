@@ -12,6 +12,14 @@ export async function POST(req: NextRequest) {
   let body: any
   try {
     body = await req.json()
+    console.log('[subscribe/complete] payload recebido', {
+      hasToken: !!body?.token,
+      paymentMethod: body?.paymentMethod,
+      hasBillingContact: !!body?.billingContact,
+      hasBillingAddress: !!body?.billingAddress,
+      hasCardToken: !!body?.cardToken,
+      hasCardHash: !!body?.cardHash,
+    })
   } catch (parseError: any) {
     console.error('[subscribe/complete] Erro ao parsear JSON:', parseError)
     return NextResponse.json({ error: 'json_invalido' }, { status: 400 })
@@ -19,6 +27,7 @@ export async function POST(req: NextRequest) {
 
   try {
     if (!adminDb) {
+      console.error('[subscribe/complete] adminDb nao configurado')
       return NextResponse.json({ error: 'admin_sdk_nao_configurado' }, { status: 500 })
     }
 
@@ -54,6 +63,15 @@ export async function POST(req: NextRequest) {
     if (!allowedPlanIds.includes(finalPlanId)) {
       return NextResponse.json({ error: 'plano_nao_permitido', allowedPlanIds }, { status: 403 })
     }
+
+    console.log('[subscribe/complete] contexto convite', {
+      studentId,
+      rawBillingDay,
+      billingDay,
+      allowedPlanIds,
+      finalPlanId,
+      paymentMethod,
+    })
 
     const studentRef = adminDb.collection('students').doc(studentId)
     const studentSnap = await studentRef.get()
@@ -112,6 +130,8 @@ export async function POST(req: NextRequest) {
       country: addressRequired && !addressCountry,
     }
 
+    console.log('[subscribe/complete] validacao dados cobranca', { missing })
+
     if (Object.values(missing).some(Boolean)) {
       return NextResponse.json({ error: 'dados_cobranca_incompletos', missing }, { status: 400 })
     }
@@ -128,8 +148,19 @@ export async function POST(req: NextRequest) {
       phone: contactPhone,
     })
 
+    console.log('[subscribe/complete] cliente garantido no gateway', {
+      studentId,
+      customerId: ensured.customerId,
+    })
+
     let cardId: string | undefined
     if (paymentMethod === 'credit_card') {
+      console.log('[subscribe/complete] criando cartao para cliente', {
+        customerId: ensured.customerId,
+        hasCardToken: !!cardToken,
+        hasCardHash: !!cardHash,
+      })
+
       const createdCard = await createCustomerCard({
         customerId: ensured.customerId,
         cardToken,
@@ -148,6 +179,10 @@ export async function POST(req: NextRequest) {
         holderDocument: contactDocument,
       })
       cardId = createdCard.cardId
+      console.log('[subscribe/complete] cartao criado no gateway', {
+        customerId: ensured.customerId,
+        cardId,
+      })
     }
 
     let startAt: string | undefined
@@ -158,7 +193,24 @@ export async function POST(req: NextRequest) {
       const candidate = new Date(currentYear, currentMonth, billingDay, 0, 0, 0, 0)
       const effective = candidate <= now ? new Date(currentYear, currentMonth + 1, billingDay, 0, 0, 0, 0) : candidate
       startAt = effective.toISOString()
+
+      console.log('[subscribe/complete] calculo startAt', {
+        now: now.toISOString(),
+        billingDay,
+        candidate: candidate.toISOString(),
+        effective: effective.toISOString(),
+        startAt,
+      })
     }
+
+    console.log('[subscribe/complete] criando assinatura no gateway', {
+      customerId: ensured.customerId,
+      planId: String(plan.pagarmePlanId),
+      paymentMethod,
+      billingDay,
+      startAt,
+      hasCardId: !!cardId,
+    })
 
     const created = await createSubscription({
       customerId: ensured.customerId,
@@ -180,6 +232,11 @@ export async function POST(req: NextRequest) {
       } : undefined,
       billingDay,
       startAt,
+    })
+
+    console.log('[subscribe/complete] assinatura criada no gateway', {
+      subscriptionId: created.subscriptionId,
+      invoiceId: created.invoiceId,
     })
 
     const contactToSave: Record<string, any> = {
@@ -223,6 +280,11 @@ export async function POST(req: NextRequest) {
     await studentRef.update(updatePayload)
     await inviteRef.update({ disabled: true, usedAt: new Date().toISOString() })
 
+    console.log('[subscribe/complete] aluno e convite atualizados', {
+      studentId,
+      inviteToken: String(token),
+    })
+
     return NextResponse.json({ ok: true, subscriptionId: created.subscriptionId, invoiceId: created.invoiceId })
   } catch (e: any) {
     console.error('[subscribe/complete] Erro:', e?.message || e)
@@ -256,6 +318,13 @@ export async function POST(req: NextRequest) {
         status = 502
       }
     }
+
+    console.error('[subscribe/complete] Erro normalizado', {
+      raw,
+      errorCode,
+      status,
+      details,
+    })
 
     return NextResponse.json({ ok: false, error: errorCode, details }, { status })
   }

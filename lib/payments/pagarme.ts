@@ -62,6 +62,20 @@ export type TokenizeCardResult = {
 }
 
 export async function tokenizeCard(args: TokenizeCardArgs, env?: Partial<PagarmeEnv>): Promise<TokenizeCardResult> {
+  const digits = String(args.number || '').replace(/\D/g, '')
+  const maskedNumber = digits
+    ? ''.padStart(Math.max(digits.length - 4, 0), '*') + digits.slice(-4)
+    : ''
+  const cvvLength = String(args.cvv || '').length
+
+  console.log('[pagarme/tokenizeCard] iniciando tokenizacao', {
+    holder: args.holder,
+    expMonth: args.expMonth,
+    expYear: args.expYear,
+    numberMasked: maskedNumber,
+    cvvLength,
+  })
+
   const body: Record<string, any> = {
     type: 'card',
     card: {
@@ -78,12 +92,27 @@ export async function tokenizeCard(args: TokenizeCardArgs, env?: Partial<Pagarme
     || process.env.PAGARME_PUBLIC_KEY
     || process.env.NEXT_PUBLIC_PAGARME_PUBLIC_KEY
 
+  console.log('[pagarme/tokenizeCard] debug chaves', {
+    hasEnvApiKey: !!env?.apiKey,
+    envApiKeyStartsWithPk: env?.apiKey?.startsWith('pk_'),
+    hasPAGARME_PUBLIC_KEY: !!process.env.PAGARME_PUBLIC_KEY,
+    hasNEXT_PUBLIC_PAGARME_PUBLIC_KEY: !!process.env.NEXT_PUBLIC_PAGARME_PUBLIC_KEY,
+    publicKeyMasked: publicKey ? publicKey.substring(0, 10) + '...' : 'undefined',
+  })
+
   if (!publicKey) {
+    console.error('[pagarme/tokenizeCard] public key ausente')
     throw new Error('pagarme_public_key_missing')
   }
 
   const baseUrl = env?.baseUrl || process.env.PAGARME_BASE_URL || 'https://api.pagar.me/core/v5'
   const url = `${baseUrl}/tokens?appId=${encodeURIComponent(publicKey)}`
+
+  console.log('[pagarme/tokenizeCard] chamando Pagarme', {
+    baseUrl,
+    hasPublicKey: !!publicKey,
+    publicKeyMasked: publicKey.substring(0, 10) + '...',
+  })
 
   const res = await fetch(url, {
     method: 'POST',
@@ -97,12 +126,24 @@ export async function tokenizeCard(args: TokenizeCardArgs, env?: Partial<Pagarme
 
   if (!res.ok) {
     const text = await res.text().catch(() => '')
+    console.error('[pagarme/tokenizeCard] erro HTTP Pagarme', {
+      status: res.status,
+      statusText: res.statusText,
+      body: text,
+      expMonth: args.expMonth,
+      expYear: args.expYear,
+    })
     throw new Error(`pagarme_http_${res.status}: ${text}`)
   }
 
   const json: any = await res.json()
   const id = json?.id || json?.token
   if (!id) throw new Error('pagarme_tokenize_failed')
+  console.log('[pagarme/tokenizeCard] token recebido da Pagarme', {
+    tokenId: id,
+    expMonth: args.expMonth,
+    expYear: args.expYear,
+  })
   return { id }
 }
 
@@ -149,6 +190,9 @@ export async function createCustomerCard(args: CreateCustomerCardArgs, env?: Par
       metadata: {},
       line_1: line1,
       line_2: a.complement || '',
+    },
+    options: {
+      verify: false,
     },
   }
   if (args.holderName) body.holder_name = args.holderName
