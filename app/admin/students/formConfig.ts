@@ -178,6 +178,7 @@ export const studentFormSchema = yup.object({
     .min(2, "Pais obrigatorio")
     .required("Pais obrigatorio"),
   billingDay: yup.number().optional(),
+  subscriptionDiscount: yup.number().optional().min(0, "Desconto não pode ser negativo").max(100, "Desconto não pode ser maior que 100%"),
 });
 
 export type StudentFormData = yup.InferType<typeof studentFormSchema>;
@@ -219,6 +220,7 @@ export const emptyStudentFormValues: StudentFormData = {
   billingState: "",
   billingCountry: "BR",
   billingDay: undefined,
+  subscriptionDiscount: undefined,
 };
 
 type BuildDefaultsResult = {
@@ -318,6 +320,9 @@ export function buildStudentFormValues(student?: Partial<Student> | null): Build
 
   const rawBillingDay = Number((student as any).billingDay);
   values.billingDay = rawBillingDay >= 1 && rawBillingDay <= 28 ? rawBillingDay : undefined;
+
+  const rawDiscount = Number((student as any).subscriptionDiscount);
+  values.subscriptionDiscount = rawDiscount > 0 && rawDiscount <= 100 ? rawDiscount : undefined;
 
   const consentTs = student.billingConsentAcceptedAt;
   let consentDate: Date | null = null;

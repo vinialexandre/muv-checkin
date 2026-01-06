@@ -104,6 +104,10 @@ export function useStudentSave(mode: 'new' | 'edit', studentId?: string) {
       payload.jiuJitsuDegree = degNum;
     }
 
+    if (data.subscriptionDiscount && data.subscriptionDiscount > 0) {
+      payload.subscriptionDiscount = data.subscriptionDiscount;
+    }
+
     let docId = studentId;
 
     if (mode === 'new') {

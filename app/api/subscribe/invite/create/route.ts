@@ -16,6 +16,13 @@ export async function POST(req: NextRequest) {
     const rawBillingDay = Number(body?.billingDay)
     const billingDay = rawBillingDay >= 1 && rawBillingDay <= 28 ? rawBillingDay : undefined
 
+    const discountInput = body?.discount
+    const discount = discountInput && typeof discountInput === 'object' ? {
+      value: Number(discountInput.value),
+      type: discountInput.type || 'percentage',
+      ...(discountInput.cycles ? { cycles: Number(discountInput.cycles) } : {}),
+    } : undefined
+
     if (!studentId || !planId) {
       return NextResponse.json({ error: 'studentId e planId são obrigatórios' }, { status: 400 })
     }
@@ -35,6 +42,9 @@ export async function POST(req: NextRequest) {
     }
     if (billingDay) {
       inviteData.billingDay = billingDay
+    }
+    if (discount) {
+      inviteData.discount = discount
     }
     await docRef.set(inviteData)
 

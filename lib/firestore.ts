@@ -21,8 +21,8 @@ export type StudentBillingAddress = {
   country: string; // ISO-3166 alpha-2
 };
 
-export type StudentPaymentPreference = 'credit_card'|'pix'|'boleto';
-export type StudentPaymentStatus = 'unknown'|'in_good_standing'|'pending'|'past_due'|'canceled';
+export type StudentPaymentPreference = 'credit_card' | 'pix' | 'boleto';
+export type StudentPaymentStatus = 'unknown' | 'in_good_standing' | 'pending' | 'past_due' | 'canceled';
 
 export type Student = {
   id: string;
@@ -57,23 +57,25 @@ export type Student = {
   billingConsentAcceptedAt?: Timestamp;
   billingConsentVersion?: string;
   paymentPreference?: StudentPaymentPreference;
-	pagarmeSubscriptionId?: string;
+  pagarmeSubscriptionId?: string;
   pagarmeCustomerId?: string;
   pagarmeCardId?: string;
   paymentStatus?: StudentPaymentStatus;
   // Pagamento mensal: usamos lastPaidAt para calcular o vencimento (1 mês após)
   lastPaidAt?: Timestamp;
+  billingDay?: number;
+  subscriptionDiscount?: number;
 };
 
-export type PlanBillingInterval = 'day'|'week'|'month'|'year';
-export type PlanPaymentMethod = 'credit_card'|'pix'|'boleto';
-export type PlanSyncStatus = 'pending'|'synced'|'error';
+export type PlanBillingInterval = 'day' | 'week' | 'month' | 'year';
+export type PlanPaymentMethod = 'credit_card' | 'pix' | 'boleto';
+export type PlanSyncStatus = 'pending' | 'synced' | 'error';
 
 export type Plan = {
   id: string;
   name: string;
   price: number;
-  period?: 'monthly'|'quarterly'|'semiannual'|'annual';
+  period?: 'monthly' | 'quarterly' | 'semiannual' | 'annual';
   active?: boolean;
   billingInterval?: PlanBillingInterval;
   billingIntervalCount?: number;
@@ -85,7 +87,7 @@ export type Plan = {
   updatedAt?: Timestamp;
 };
 
-export type SubscriptionStatus = 'pending'|'active'|'past_due'|'canceled'|'paused';
+export type SubscriptionStatus = 'pending' | 'active' | 'past_due' | 'canceled' | 'paused';
 
 export type Subscription = {
   id: string;
@@ -106,7 +108,7 @@ export type Subscription = {
   updatedAt?: Timestamp;
 };
 
-export type SubscriptionInvoiceStatus = 'pending'|'paid'|'canceled'|'failed'|'expired'|'past_due';
+export type SubscriptionInvoiceStatus = 'pending' | 'paid' | 'canceled' | 'failed' | 'expired' | 'past_due';
 
 export type SubscriptionInvoice = {
   id: string;
@@ -139,7 +141,7 @@ export type ClassDoc = { id: string; modality: string; startsAt: Timestamp; ends
 export type CheckIn = {
   id: string; // studentId_yyyymmdd
   studentId: string;
-  source: 'face'|'manual';
+  source: 'face' | 'manual';
   createdAt: Timestamp;
 };
 
@@ -148,7 +150,7 @@ export type Attendance = {
   id: string; // classId_studentId_yyyymmdd
   classId: string;
   studentId: string;
-  source: 'face'|'manual';
+  source: 'face' | 'manual';
   createdAt: Timestamp;
 };
 
@@ -321,9 +323,9 @@ export async function getPublishedScheduleBySlug(slug: string): Promise<Schedule
 
 // Nova função simplificada para check-in sem dependência de aulas
 // Mantém ID dinâmico no documento de check-in e usa um "lock" diário determinístico para evitar duplicatas sem precisar de índice composto.
-export async function createCheckIn(args: { studentId: string; when: Date; source: 'face'|'manual' }) {
+export async function createCheckIn(args: { studentId: string; when: Date; source: 'face' | 'manual' }) {
   const d = args.when;
-  const yyyymmdd = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  const yyyymmdd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
   const id = `${args.studentId}_${yyyymmdd}`;
   const checkinRef = doc(db, 'checkins', id);
 
@@ -345,9 +347,9 @@ export async function createCheckIn(args: { studentId: string; when: Date; sourc
 }
 
 // Função antiga mantida para compatibilidade
-export async function createAttendanceOnce(args: { classId: string; studentId: string; when: Date; source: 'face'|'manual' }) {
+export async function createAttendanceOnce(args: { classId: string; studentId: string; when: Date; source: 'face' | 'manual' }) {
   const d = args.when;
-  const yyyymmdd = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  const yyyymmdd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
   const id = `${args.classId}_${args.studentId}_${yyyymmdd}`;
   const ref = doc(db, 'attendances', id);
   const snap = await getDoc(ref);
@@ -363,8 +365,8 @@ export async function canCheckInWindow(classId: string, at: Date) {
   const data = snap.data() as any;
   const start = (data.startsAt as Timestamp).toDate();
   const end = (data.endsAt as Timestamp).toDate();
-  const windowStart = new Date(start.getTime() - 10*60*1000);
-  const windowEnd = new Date(start.getTime() + 15*60*1000);
+  const windowStart = new Date(start.getTime() - 10 * 60 * 1000);
+  const windowEnd = new Date(start.getTime() + 15 * 60 * 1000);
   return at >= windowStart && at <= windowEnd && at <= end;
 }
 
@@ -378,7 +380,7 @@ export async function exportCheckInsCsvForMonth(year: number, month0: number) {
     where('createdAt', '<=', Timestamp.fromDate(new Date(last.getFullYear(), last.getMonth(), last.getDate(), 23, 59, 59)))
   );
   const snaps = await getDocs(q);
-  const rows = [['id','studentId','source','createdAt']];
+  const rows = [['id', 'studentId', 'source', 'createdAt']];
   snaps.forEach(s => {
     const c = s.data() as CheckIn;
     rows.push([c.id, c.studentId, c.source, (c.createdAt as Timestamp).toDate().toISOString()]);
@@ -402,7 +404,7 @@ export async function exportAttendancesCsvForMonth(year: number, month0: number)
   const last = new Date(year, month0 + 1, 0);
   const q = query(collection(db, 'attendances'), where('createdAt', '>=', Timestamp.fromDate(first)), where('createdAt', '<=', Timestamp.fromDate(new Date(last.getFullYear(), last.getMonth(), last.getDate(), 23, 59, 59))));
   const snaps = await getDocs(q);
-  const rows = [['id','classId','studentId','source','createdAt']];
+  const rows = [['id', 'classId', 'studentId', 'source', 'createdAt']];
   snaps.forEach(s => {
     const a = s.data() as Attendance;
     rows.push([a.id, a.classId, a.studentId, a.source, (a.createdAt as Timestamp).toDate().toISOString()]);

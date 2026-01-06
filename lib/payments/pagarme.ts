@@ -30,7 +30,7 @@ export async function ensureCustomer(args: EnsureCustomerArgs, env?: Partial<Pag
 
   const digits = (args.phone || '').replace(/\D/g, '')
   const country = '55'
-  const area = digits.length >= 10 ? digits.slice(-11, -9) || digits.slice(0,2) : undefined
+  const area = digits.length >= 10 ? digits.slice(-11, -9) || digits.slice(0, 2) : undefined
   const number = digits.length >= 10 ? digits.slice(-9) : undefined
 
   const body: Record<string, any> = {
@@ -62,20 +62,6 @@ export type TokenizeCardResult = {
 }
 
 export async function tokenizeCard(args: TokenizeCardArgs, env?: Partial<PagarmeEnv>): Promise<TokenizeCardResult> {
-  const digits = String(args.number || '').replace(/\D/g, '')
-  const maskedNumber = digits
-    ? ''.padStart(Math.max(digits.length - 4, 0), '*') + digits.slice(-4)
-    : ''
-  const cvvLength = String(args.cvv || '').length
-
-  console.log('[pagarme/tokenizeCard] iniciando tokenizacao', {
-    holder: args.holder,
-    expMonth: args.expMonth,
-    expYear: args.expYear,
-    numberMasked: maskedNumber,
-    cvvLength,
-  })
-
   const body: Record<string, any> = {
     type: 'card',
     card: {
@@ -92,27 +78,12 @@ export async function tokenizeCard(args: TokenizeCardArgs, env?: Partial<Pagarme
     || process.env.PAGARME_PUBLIC_KEY
     || process.env.NEXT_PUBLIC_PAGARME_PUBLIC_KEY
 
-  console.log('[pagarme/tokenizeCard] debug chaves', {
-    hasEnvApiKey: !!env?.apiKey,
-    envApiKeyStartsWithPk: env?.apiKey?.startsWith('pk_'),
-    hasPAGARME_PUBLIC_KEY: !!process.env.PAGARME_PUBLIC_KEY,
-    hasNEXT_PUBLIC_PAGARME_PUBLIC_KEY: !!process.env.NEXT_PUBLIC_PAGARME_PUBLIC_KEY,
-    publicKeyMasked: publicKey ? publicKey.substring(0, 10) + '...' : 'undefined',
-  })
-
   if (!publicKey) {
-    console.error('[pagarme/tokenizeCard] public key ausente')
     throw new Error('pagarme_public_key_missing')
   }
 
   const baseUrl = env?.baseUrl || process.env.PAGARME_BASE_URL || 'https://api.pagar.me/core/v5'
   const url = `${baseUrl}/tokens?appId=${encodeURIComponent(publicKey)}`
-
-  console.log('[pagarme/tokenizeCard] chamando Pagarme', {
-    baseUrl,
-    hasPublicKey: !!publicKey,
-    publicKeyMasked: publicKey.substring(0, 10) + '...',
-  })
 
   const res = await fetch(url, {
     method: 'POST',
@@ -126,24 +97,12 @@ export async function tokenizeCard(args: TokenizeCardArgs, env?: Partial<Pagarme
 
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    console.error('[pagarme/tokenizeCard] erro HTTP Pagarme', {
-      status: res.status,
-      statusText: res.statusText,
-      body: text,
-      expMonth: args.expMonth,
-      expYear: args.expYear,
-    })
     throw new Error(`pagarme_http_${res.status}: ${text}`)
   }
 
   const json: any = await res.json()
   const id = json?.id || json?.token
   if (!id) throw new Error('pagarme_tokenize_failed')
-  console.log('[pagarme/tokenizeCard] token recebido da Pagarme', {
-    tokenId: id,
-    expMonth: args.expMonth,
-    expYear: args.expYear,
-  })
   return { id }
 }
 
@@ -207,7 +166,7 @@ export async function createCustomerCard(args: CreateCustomerCardArgs, env?: Par
 export type CreateSubscriptionArgs = {
   customerId: string
   planId: string
-  paymentMethod: 'credit_card'|'pix'|'boleto'
+  paymentMethod: 'credit_card' | 'pix' | 'boleto'
   idempotencyKey?: string
   cardId?: string
   cardToken?: string
@@ -222,8 +181,13 @@ export type CreateSubscriptionArgs = {
     state: string
     country: string
   }
-	  billingDay?: number
-	  startAt?: string
+  billingDay?: number
+  startAt?: string
+  discount?: {
+    value: number
+    type?: 'percentage' | 'fixed'
+    cycles?: number
+  }
 }
 
 export type CreateSubscriptionResult = {
@@ -240,9 +204,9 @@ export async function createSubscription(args: CreateSubscriptionArgs, env?: Par
     customer_id: args.customerId,
     payment_method: mappedMethod,
   }
-	  if (args.startAt) {
-	    payload.start_at = args.startAt
-	  }
+  if (args.startAt) {
+    payload.start_at = args.startAt
+  }
   if (args.paymentMethod === 'pix') {
     payload.cash = { type: 'pix' }
   }
@@ -265,6 +229,16 @@ export async function createSubscription(args: CreateSubscriptionArgs, env?: Par
       }
     }
   }
+  if (args.discount) {
+    const discountType = args.discount.type || 'percentage'
+    payload.discounts = [
+      {
+        value: args.discount.value,
+        discount_type: discountType,
+        ...(args.discount.cycles && args.discount.cycles > 0 ? { cycles: args.discount.cycles } : {}),
+      }
+    ]
+  }
   const headersOverride = args.idempotencyKey ? { 'Idempotency-Key': args.idempotencyKey } : undefined
   const res = await pagarmeRequest<any>('POST', '/subscriptions', undefined, env, payload, headersOverride)
   const subscriptionId = res?.id
@@ -281,11 +255,11 @@ export type UpsertPlanArgs = {
   pagarmePlanId?: string
   name: string
   amount: number
-  interval: 'day'|'week'|'month'|'year'
+  interval: 'day' | 'week' | 'month' | 'year'
   intervalCount: number
-  paymentMethods: Array<'credit_card'|'pix'|'boleto'>
+  paymentMethods: Array<'credit_card' | 'pix' | 'boleto'>
   metadata?: Record<string, string | number | boolean | null | undefined>
-  status?: 'active'|'inactive'
+  status?: 'active' | 'inactive'
 }
 
 export type UpsertPlanResult = {
@@ -320,17 +294,17 @@ export async function upsertPlan(args: UpsertPlanArgs, env?: Partial<PagarmeEnv>
     payload.status = args.status
   }
 
-	  let shouldCreateNew = false
-	  if (args.pagarmePlanId) {
-	    try {
-	      await pagarmeRequest<any>('GET', `/plans/${args.pagarmePlanId}`, undefined, env)
-	    } catch (e) {
-	      shouldCreateNew = true
-	    }
-	  }
+  let shouldCreateNew = false
+  if (args.pagarmePlanId) {
+    try {
+      await pagarmeRequest<any>('GET', `/plans/${args.pagarmePlanId}`, undefined, env)
+    } catch (e) {
+      shouldCreateNew = true
+    }
+  }
 
-	  const pathUrl = (args.pagarmePlanId && !shouldCreateNew) ? `/plans/${args.pagarmePlanId}` : '/plans'
-	  const method = (args.pagarmePlanId && !shouldCreateNew) ? 'PUT' : 'POST'
+  const pathUrl = (args.pagarmePlanId && !shouldCreateNew) ? `/plans/${args.pagarmePlanId}` : '/plans'
+  const method = (args.pagarmePlanId && !shouldCreateNew) ? 'PUT' : 'POST'
   const res = await pagarmeRequest<any>(method, pathUrl, undefined, env, payload)
   const planId = res?.id || args.pagarmePlanId
   if (!planId) throw new Error('pagarme_plan_sync_failed')
@@ -462,8 +436,136 @@ export type ChangeSubscriptionPlanResult = { changed: boolean }
 export async function changeSubscriptionPlan(args: ChangeSubscriptionPlanArgs, env?: Partial<PagarmeEnv>): Promise<ChangeSubscriptionPlanResult> {
   const { apiKey } = cfg(env)
   if (!apiKey) throw new Error('pagarme_api_key_missing')
-	  await pagarmeRequest<any>('PUT', `/subscriptions/${args.subscriptionId}`, undefined, env, { plan_id: args.planId })
+  await pagarmeRequest<any>('PUT', `/subscriptions/${args.subscriptionId}`, undefined, env, { plan_id: args.planId })
   return { changed: true }
+}
+
+export type CreateDiscountArgs = {
+  subscriptionId: string
+  value: number
+  type?: 'percentage' | 'fixed'
+  cycles?: number
+  description?: string
+}
+
+export type CreateDiscountResult = {
+  discountId: string
+  value: number
+  type: string
+}
+
+export async function createDiscount(args: CreateDiscountArgs, env?: Partial<PagarmeEnv>): Promise<CreateDiscountResult> {
+  const { apiKey } = cfg(env)
+  if (!apiKey) throw new Error('pagarme_api_key_missing')
+
+  const discountType = args.type || 'percentage'
+  const body: Record<string, any> = {
+    value: args.value,
+    discount_type: discountType,
+  }
+
+  if (args.cycles && args.cycles > 0) {
+    body.cycles = args.cycles
+  }
+
+  if (args.description) {
+    body.description = args.description
+  }
+
+  const res = await pagarmeRequest<any>('POST', `/subscriptions/${args.subscriptionId}/discounts`, undefined, env, body)
+  const discountId = res?.id
+  if (!discountId) throw new Error('pagarme_create_discount_failed')
+
+  return {
+    discountId,
+    value: res?.value || args.value,
+    type: res?.discount_type || discountType,
+  }
+}
+
+export type GetDiscountArgs = {
+  subscriptionId: string
+  discountId: string
+}
+
+export type GetDiscountResult = {
+  discountId: string
+  value: number
+  type: string
+  cycles?: number
+  description?: string
+  createdAt?: string
+}
+
+export async function getDiscount(args: GetDiscountArgs, env?: Partial<PagarmeEnv>): Promise<GetDiscountResult> {
+  const { apiKey } = cfg(env)
+  if (!apiKey) throw new Error('pagarme_api_key_missing')
+
+  const res = await pagarmeRequest<any>('GET', `/subscriptions/${args.subscriptionId}/discounts/${args.discountId}`, undefined, env)
+
+  return {
+    discountId: res?.id || args.discountId,
+    value: res?.value || 0,
+    type: res?.type || 'percentage',
+    cycles: res?.cycles,
+    description: res?.description,
+    createdAt: res?.created_at,
+  }
+}
+
+export type ListDiscountsArgs = {
+  subscriptionId: string
+  page?: number
+  size?: number
+}
+
+export type ListDiscountsResult = {
+  discounts: Array<{
+    discountId: string
+    value: number
+    type: string
+    cycles?: number
+    description?: string
+    createdAt?: string
+  }>
+}
+
+export async function listDiscounts(args: ListDiscountsArgs, env?: Partial<PagarmeEnv>): Promise<ListDiscountsResult> {
+  const { apiKey } = cfg(env)
+  if (!apiKey) throw new Error('pagarme_api_key_missing')
+
+  const { subscriptionId, page = 1, size = 20 } = args
+  const res = await pagarmeRequest<any>('GET', `/subscriptions/${subscriptionId}/discounts`, { page, size }, env)
+
+  const discountsList = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : [])
+
+  return {
+    discounts: discountsList.map((d: any) => ({
+      discountId: d.id,
+      value: d.value,
+      type: d.type,
+      cycles: d.cycles,
+      description: d.description,
+      createdAt: d.created_at,
+    })),
+  }
+}
+
+export type RemoveDiscountArgs = {
+  subscriptionId: string
+  discountId: string
+}
+
+export type RemoveDiscountResult = {
+  removed: boolean
+}
+
+export async function removeDiscount(args: RemoveDiscountArgs, env?: Partial<PagarmeEnv>): Promise<RemoveDiscountResult> {
+  const { apiKey } = cfg(env)
+  if (!apiKey) throw new Error('pagarme_api_key_missing')
+
+  await pagarmeRequest<any>('DELETE', `/subscriptions/${args.subscriptionId}/discounts/${args.discountId}`, undefined, env)
+  return { removed: true }
 }
 
 
@@ -478,25 +580,25 @@ function authHeader(apiKey: string) {
 }
 
 async function pagarmeRequest<T>(
-  method: 'GET'|'POST'|'PATCH'|'DELETE'|'PUT',
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE' | 'PUT',
   path: string,
-  query?: Record<string, string|number|boolean|undefined>,
+  query?: Record<string, string | number | boolean | undefined>,
   env?: Partial<PagarmeEnv>,
   body?: any,
-  headersOverride?: Record<string,string>,
+  headersOverride?: Record<string, string>,
 ): Promise<T> {
   const { apiKey, baseUrl } = cfg(env)
   if (!apiKey) throw new Error('pagarme_api_key_missing')
   const qs = query
     ? '?' + new URLSearchParams(
-        Object.fromEntries(
-          Object.entries(query).filter(([,v]) => v !== undefined)
-            .map(([k,v]) => [k, String(v)])
-        )
-      ).toString()
+      Object.fromEntries(
+        Object.entries(query).filter(([, v]) => v !== undefined)
+          .map(([k, v]) => [k, String(v)])
+      )
+    ).toString()
     : ''
   const url = `${baseUrl}${path}${qs}`
-  const headers: Record<string,string> = {
+  const headers: Record<string, string> = {
     'Authorization': authHeader(apiKey),
     'Accept': 'application/json',
   }
@@ -551,7 +653,7 @@ export type PagarmeTransaction = (PagarmeTransactionPix & PagarmeTransactionBole
 export type PagarmeCharge = {
   id: string
   status: string
-  payment_method: 'pix'|'boleto'|'credit_card'|string
+  payment_method: 'pix' | 'boleto' | 'credit_card' | string
   amount: number
   paid_at?: string
   created_at?: string

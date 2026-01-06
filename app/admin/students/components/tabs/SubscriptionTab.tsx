@@ -29,8 +29,16 @@ export default function SubscriptionTab({ mode, studentId, control, watch, plans
 
 	const activePlanIdValue = watch('activePlanId');
 	const billingDayValue = watch('billingDay');
+	const discountValue = watch('subscriptionDiscount');
 	const selectedPlan = plans.find((plan) => plan.id === activePlanIdValue);
 	const selectedPlanMethods = selectedPlan?.paymentMethods?.map((method) => formatPaymentMethod(method)).join(' · ');
+
+	const calculateDiscountedPrice = () => {
+		if (!selectedPlan?.price || !discountValue || discountValue <= 0) {
+			return selectedPlan?.price || 0;
+		}
+		return selectedPlan.price * (1 - discountValue / 100);
+	};
 	const [invoices, setInvoices] = useState<any[] | null>(null);
 	const [invoicesLoading, setInvoicesLoading] = useState(false);
 	const hasSubscription = !!subSummary;
@@ -103,6 +111,12 @@ export default function SubscriptionTab({ mode, studentId, control, watch, plans
 			const payload: Record<string, any> = { studentId, planId: activePlanIdValue, allowedPlanIds, allowPlanChange };
 			if (billingDay && billingDay >= 1 && billingDay <= 28) {
 				payload.billingDay = billingDay;
+			}
+			if (discountValue && discountValue > 0) {
+				payload.discount = {
+					value: discountValue,
+					type: 'percentage',
+				};
 			}
 			const response = await fetch('/api/subscribe/invite/create', {
 				method: 'POST',
@@ -221,6 +235,28 @@ export default function SubscriptionTab({ mode, studentId, control, watch, plans
 										))}
 									</Select>
 								</FormControl>
+								<Controller name="subscriptionDiscount" control={control} render={({ field, fieldState }) => (
+									<FormControl isInvalid={!!fieldState.error} maxW="140px">
+										<FormLabel whiteSpace="nowrap">Desconto (%)</FormLabel>
+										<Input
+											type="number"
+											min={0}
+											max={100}
+											placeholder="0"
+											{...field}
+											value={field.value ?? ''}
+											onChange={(e) => {
+												const value = e.target.value ? Number(e.target.value) : undefined;
+												if (value !== undefined && value > 100) {
+													field.onChange(100);
+												} else {
+													field.onChange(value);
+												}
+											}}
+										/>
+										<FormErrorMessage>{fieldState.error?.message as any}</FormErrorMessage>
+									</FormControl>
+								)} />
 								<Checkbox isChecked={allowPlanChange} onChange={(e) => setAllowPlanChange(e.target.checked)}>
 									Permitir troca de plano pelo aluno
 								</Checkbox>
@@ -234,10 +270,20 @@ export default function SubscriptionTab({ mode, studentId, control, watch, plans
 								<AlertDescription fontSize="sm">Cadastre e sincronize um plano no Pagar.me para liberar as assinaturas.</AlertDescription>
 							</Alert>
 						) : selectedPlan ? (
-							<Text fontSize="sm" color="gray.600">
-								Valor: {selectedPlan.price ? currencyFormatter.format(selectedPlan.price) : '-'}
-								{selectedPlanMethods ? ` · Métodos: ${selectedPlanMethods}` : ''}
-							</Text>
+							<VStack align="flex-start" spacing={1}>
+								<Text fontSize="sm" color="gray.600">
+									{discountValue && discountValue > 0 ? (
+										<>
+											Valor: <s>{selectedPlan.price ? currencyFormatter.format(selectedPlan.price) : '-'}</s> {currencyFormatter.format(calculateDiscountedPrice())} ({discountValue}% desc.)
+										</>
+									) : (
+										<>
+											Valor: {selectedPlan.price ? currencyFormatter.format(selectedPlan.price) : '-'}
+										</>
+									)}
+									{selectedPlanMethods ? ` · Métodos: ${selectedPlanMethods}` : ''}
+								</Text>
+							</VStack>
 						) : null}
 
 						{showInvoicesTable && (
