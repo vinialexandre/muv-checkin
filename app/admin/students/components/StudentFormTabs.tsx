@@ -35,6 +35,7 @@ interface StudentFormTabsProps {
   setTabIndex: (idx: number) => void;
   stopVideo: () => void;
   loadingCep: boolean;
+  isMinorNow: boolean;
 }
 
 const isMinor = (birthDate: string) => {

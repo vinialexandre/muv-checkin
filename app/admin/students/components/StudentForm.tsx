@@ -10,9 +10,12 @@ import { useCepLookup } from '@/lib/hooks/useCepLookup';
 import { useStudentBiometry } from './useStudentBiometry';
 import { useStudentSave } from './useStudentSave';
 import StudentFormTabs from './StudentFormTabs';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { isMinor } from '@/app/admin/students/formConfig';
 
 type Plan = { id: string; name: string; price?: number; planSyncStatus?: string; pagarmePlanId?: string; active?: boolean; paymentMethods?: Array<'pix' | 'boleto' | 'credit_card'>; };
+
+const SUBSCRIPTION_TAB_INDEX = 4;
 
 interface StudentFormProps {
   mode: 'new' | 'edit';
@@ -21,10 +24,12 @@ interface StudentFormProps {
 
 export default function StudentForm({ mode, studentId }: StudentFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const toast = useToast();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loadingPage, setLoadingPage] = useState(mode === 'edit');
-  const [tabIndex, setTabIndex] = useState(0);
+  const initialTab = searchParams.get('tab') === 'subscription' ? SUBSCRIPTION_TAB_INDEX : 0;
+  const [tabIndex, setTabIndex] = useState(initialTab);
   const [showPwd, setShowPwd] = useState(false);
   const [showPwd2, setShowPwd2] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -46,10 +51,13 @@ export default function StudentForm({ mode, studentId }: StudentFormProps) {
   const { save: saveStudent } = useStudentSave(mode, studentId);
 
   const birthDateValue = watch('birthDate');
+  const isMinorNow = isMinor(birthDateValue);
   const studentNameValue = watch('name');
-  const billingNameValue = watch('billingName');
   const studentEmailValue = watch('email');
-  const billingEmailValue = watch('billingEmail');
+  const studentWhatsappValue = watch('whatsapp');
+  const guardianNameValue = watch('guardianName');
+  const guardianEmailValue = watch('guardianEmail');
+  const guardianPhoneValue = watch('guardianPhone');
   const activePlanIdValue = watch('activePlanId');
   const jiuBeltValue = watch('jiuJitsuBelt');
   const jiuDegreeValue = watch('jiuJitsuDegree');
@@ -71,16 +79,28 @@ export default function StudentForm({ mode, studentId }: StudentFormProps) {
   }, [cepLookup.loading]);
 
   useEffect(() => {
-    if (studentNameValue && !billingNameValue) {
-      setValue('billingName', studentNameValue);
+    if (isMinorNow) {
+      setValue('billingName', guardianNameValue || '');
+    } else {
+      setValue('billingName', studentNameValue || '');
     }
-  }, [studentNameValue, billingNameValue, setValue]);
+  }, [studentNameValue, guardianNameValue, isMinorNow, setValue]);
 
   useEffect(() => {
-    if (studentEmailValue && !billingEmailValue) {
-      setValue('billingEmail', studentEmailValue);
+    if (isMinorNow) {
+      setValue('billingEmail', guardianEmailValue || '');
+    } else {
+      setValue('billingEmail', studentEmailValue || '');
     }
-  }, [studentEmailValue, billingEmailValue, setValue]);
+  }, [studentEmailValue, guardianEmailValue, isMinorNow, setValue]);
+
+  useEffect(() => {
+    if (isMinorNow) {
+      setValue('billingPhone', guardianPhoneValue || '');
+    } else {
+      setValue('billingPhone', studentWhatsappValue || '');
+    }
+  }, [studentWhatsappValue, guardianPhoneValue, isMinorNow, setValue]);
 
   useEffect(() => {
     getDocs(collection(db, 'plans')).then((snap) => {
@@ -122,6 +142,14 @@ export default function StudentForm({ mode, studentId }: StudentFormProps) {
           if (cancelled) return;
           const { values } = buildStudentFormValues({ id: studentId, ...data });
           reset(values);
+
+          if (searchParams.get('tab') !== 'subscription') {
+            const subRes = await fetch(`/api/students/${studentId}/subscription`, { cache: 'no-store' });
+            const subData = await subRes.json().catch(() => ({}));
+            if (!cancelled && !subData?.subscription) {
+              setTabIndex(SUBSCRIPTION_TAB_INDEX);
+            }
+          }
         } catch (error) {
           console.error('load_student_failed', error);
           toast({ title: 'Erro ao carregar aluno', status: 'error' });
@@ -132,7 +160,7 @@ export default function StudentForm({ mode, studentId }: StudentFormProps) {
       })();
       return () => { cancelled = true; };
     }
-  }, [mode, studentId, reset, router, toast]);
+  }, [mode, studentId, reset, router, toast, searchParams]);
 
   const openConfirm = (idx: number) => {
     setConfirmIdx(idx);
@@ -158,7 +186,15 @@ export default function StudentForm({ mode, studentId }: StudentFormProps) {
   const save = handleSubmit(
     async (data) => {
       try {
-        await saveStudent(data, biometry.photoBlobs, biometry.samples, biometry.stopVideo);
+        const savedId = await saveStudent(data, biometry.photoBlobs, biometry.samples, biometry.stopVideo);
+        if (!savedId) {
+          return;
+        }
+        if (mode === 'new') {
+          router.push(`/admin/students/${savedId}/edit?tab=subscription`);
+        } else {
+          router.push('/admin/students');
+        }
       } catch (error: any) {
         console.error('save_student_failed', error);
         toast({ title: 'Erro ao salvar aluno', status: 'error', description: String(error?.message || error) });
@@ -206,6 +242,7 @@ export default function StudentForm({ mode, studentId }: StudentFormProps) {
         setTabIndex={setTabIndex}
         stopVideo={biometry.stopVideo}
         loadingCep={loadingCep}
+        isMinorNow={isMinorNow}
       />
 
       <HStack justify="flex-end">

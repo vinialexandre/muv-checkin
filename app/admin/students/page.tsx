@@ -18,8 +18,8 @@ export default function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string|undefined>();
-  const [deleteId, setDeleteId] = useState<string|undefined>();
+  const [error, setError] = useState<string | undefined>();
+  const [deleteId, setDeleteId] = useState<string | undefined>();
   const [navigating, setNavigating] = useState(false);
   const cancelRef = useRef<HTMLButtonElement>(null);
 
@@ -28,28 +28,28 @@ export default function StudentsPage() {
   const [filterName, setFilterName] = useState('');
   const [filterPlanId, setFilterPlanId] = useState<string>('');
   const [filterStatus, setFilterStatus] = useState<typeof filterAll | 'active' | 'inactive'>(filterAll);
-	  const [filterPaymentMethod, setFilterPaymentMethod] = useState<typeof filterAll | 'recorrente' | 'pix'>(filterAll);
+  const [filterPaymentMethod, setFilterPaymentMethod] = useState<typeof filterAll | 'recorrente' | 'pix'>(filterAll);
   // rascunho (digita primeiro, aplica ao clicar em Buscar)
   const [draftName, setDraftName] = useState('');
   const [draftPlanId, setDraftPlanId] = useState<string>('');
   const [draftStatus, setDraftStatus] = useState<typeof filterAll | 'active' | 'inactive'>(filterAll);
-	  const [draftPaymentMethod, setDraftPaymentMethod] = useState<typeof filterAll | 'recorrente' | 'pix'>(filterAll);
+  const [draftPaymentMethod, setDraftPaymentMethod] = useState<typeof filterAll | 'recorrente' | 'pix'>(filterAll);
 
-	  // scroll infinito
-	  const [displayCount, setDisplayCount] = useState(10);
-	  const [loadingMore, setLoadingMore] = useState(false);
+  // scroll infinito
+  const [displayCount, setDisplayCount] = useState(10);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-		  const isRecurringPayment = (student: Student) => {
-		    return (
-		      student.paymentPreference === 'credit_card' &&
-		      !!student.pagarmeSubscriptionId &&
-		      student.paymentStatus !== 'canceled'
-		    );
-		  };
+  const isRecurringPayment = (student: Student) => {
+    return (
+      student.paymentPreference === 'credit_card' &&
+      !!student.pagarmeSubscriptionId &&
+      student.paymentStatus !== 'canceled'
+    );
+  };
 
-		  const getPaymentMethodLabel = (student: Student) => {
-		    return isRecurringPayment(student) ? 'Recorrente (Pré-pago)' : 'Pix';
-		  };
+  const getPaymentMethodLabel = (student: Student) => {
+    return isRecurringPayment(student) ? 'Recorrente (Pré-pago)' : 'Pix';
+  };
 
   useEffect(() => {
     const q = query(collection(db, 'students'), orderBy('name'));
@@ -71,18 +71,18 @@ export default function StudentsPage() {
     return () => unsub();
   }, []);
 
-	const [isMobile] = useMediaQuery('(max-width: 780px)');
+  const [isMobile] = useMediaQuery('(max-width: 780px)');
 
 
-	  const filtered = useMemo(() => {
-	    return students.filter(s =>
-	      (!filterName || normalizeText(s.name||'').includes(normalizeText(filterName))) &&
-	      (!filterPlanId || (s.activePlanId||'') === filterPlanId) &&
-	      (filterStatus === filterAll || (filterStatus === 'active' ? !!s.active : !s.active)) &&
-	      (filterPaymentMethod === filterAll ||
-	        (filterPaymentMethod === 'recorrente' ? isRecurringPayment(s) : !isRecurringPayment(s)))
-	    );
-	  }, [students, filterName, filterPlanId, filterStatus, filterPaymentMethod]);
+  const filtered = useMemo(() => {
+    return students.filter(s =>
+      (!filterName || normalizeText(s.name || '').includes(normalizeText(filterName))) &&
+      (!filterPlanId || (s.activePlanId || '') === filterPlanId) &&
+      (filterStatus === filterAll || (filterStatus === 'active' ? !!s.active : !s.active)) &&
+      (filterPaymentMethod === filterAll ||
+        (filterPaymentMethod === 'recorrente' ? isRecurringPayment(s) : !isRecurringPayment(s)))
+    );
+  }, [students, filterName, filterPlanId, filterStatus, filterPaymentMethod]);
 
   const displayedStudents = useMemo(() => {
     return filtered.slice(0, displayCount);
@@ -90,9 +90,9 @@ export default function StudentsPage() {
 
   const hasMore = displayCount < filtered.length;
 
-	  useEffect(() => {
-	    setDisplayCount(10);
-	  }, [filterName, filterPlanId, filterStatus, filterPaymentMethod]);
+  useEffect(() => {
+    setDisplayCount(10);
+  }, [filterName, filterPlanId, filterStatus, filterPaymentMethod]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -136,43 +136,43 @@ export default function StudentsPage() {
         <HStack justify="space-between" mb={2}><Text fontWeight={600}>Filtros</Text></HStack>
         {isMobile ? (
           <VStack spacing={4} align="stretch">
-            <Input placeholder="Nome" value={draftName} onChange={(e)=>setDraftName(e.target.value)} />
-            <Select placeholder="Todos os planos" value={draftPlanId} onChange={(e)=>setDraftPlanId(e.target.value)}>
+            <Input placeholder="Nome" value={draftName} onChange={(e) => setDraftName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { setFilterName(draftName.trim()); setFilterPlanId(draftPlanId); setFilterStatus(draftStatus); setFilterPaymentMethod(draftPaymentMethod); } }} />
+            <Select placeholder="Todos os planos" value={draftPlanId} onChange={(e) => setDraftPlanId(e.target.value)}>
               {plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </Select>
-	            <Select placeholder="Método de pagamento" value={draftPaymentMethod} onChange={(e)=>setDraftPaymentMethod((e.target.value||filterAll) as any)}>
-	              <option value="recorrente">Recorrente (Pré-pago)</option>
-	              <option value="pix">Pix</option>
-	              <option value="all">Todos</option>
-	            </Select>
-            <Select placeholder="Status" value={draftStatus} onChange={(e)=>setDraftStatus((e.target.value||filterAll) as any)}>
+            <Select placeholder="Método de pagamento" value={draftPaymentMethod} onChange={(e) => setDraftPaymentMethod((e.target.value || filterAll) as any)}>
+              <option value="recorrente">Recorrente (Pré-pago)</option>
+              <option value="pix">Pix</option>
+              <option value="all">Todos</option>
+            </Select>
+            <Select placeholder="Status" value={draftStatus} onChange={(e) => setDraftStatus((e.target.value || filterAll) as any)}>
               <option value="active">Ativo</option>
               <option value="inactive">Inativo</option>
               <option value="all">Todos</option>
             </Select>
             <HStack spacing={2} justify="flex-end">
-	              <Button leftIcon={<Icon name='search' size={16} />} onClick={()=>{ setFilterName(draftName.trim()); setFilterPlanId(draftPlanId); setFilterStatus(draftStatus); setFilterPaymentMethod(draftPaymentMethod); }}>Buscar</Button>
-	              <Button variant="outline" onClick={()=>{ setDraftName(''); setDraftPlanId(''); setDraftStatus(filterAll); setDraftPaymentMethod(filterAll); setFilterName(''); setFilterPlanId(''); setFilterStatus(filterAll); setFilterPaymentMethod(filterAll); }}>Limpar</Button>
+              <Button leftIcon={<Icon name='search' size={16} />} onClick={() => { setFilterName(draftName.trim()); setFilterPlanId(draftPlanId); setFilterStatus(draftStatus); setFilterPaymentMethod(draftPaymentMethod); }}>Buscar</Button>
+              <Button variant="outline" onClick={() => { setDraftName(''); setDraftPlanId(''); setDraftStatus(filterAll); setDraftPaymentMethod(filterAll); setFilterName(''); setFilterPlanId(''); setFilterStatus(filterAll); setFilterPaymentMethod(filterAll); }}>Limpar</Button>
             </HStack>
           </VStack>
         ) : (
           <HStack wrap="wrap" spacing={4}>
-            <Input placeholder="Nome" value={draftName} onChange={(e)=>setDraftName(e.target.value)} maxW="240px" />
-            <Select placeholder="Todos os planos" value={draftPlanId} onChange={(e)=>setDraftPlanId(e.target.value)} maxW="240px">
+            <Input placeholder="Nome" value={draftName} onChange={(e) => setDraftName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { setFilterName(draftName.trim()); setFilterPlanId(draftPlanId); setFilterStatus(draftStatus); setFilterPaymentMethod(draftPaymentMethod); } }} maxW="240px" />
+            <Select placeholder="Todos os planos" value={draftPlanId} onChange={(e) => setDraftPlanId(e.target.value)} maxW="240px">
               {plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </Select>
-	            <Select placeholder="Método de pagamento" value={draftPaymentMethod} onChange={(e)=>setDraftPaymentMethod((e.target.value||filterAll) as any)} maxW="220px">
-	              <option value="recorrente">Recorrente (Pré-pago)</option>
-	              <option value="pix">Pix</option>
-	              <option value="all">Todos</option>
-	            </Select>
-            <Select placeholder="Status" value={draftStatus} onChange={(e)=>setDraftStatus((e.target.value||filterAll) as any)} maxW="180px">
+            <Select placeholder="Método de pagamento" value={draftPaymentMethod} onChange={(e) => setDraftPaymentMethod((e.target.value || filterAll) as any)} maxW="220px">
+              <option value="recorrente">Recorrente (Pré-pago)</option>
+              <option value="pix">Pix</option>
+              <option value="all">Todos</option>
+            </Select>
+            <Select placeholder="Status" value={draftStatus} onChange={(e) => setDraftStatus((e.target.value || filterAll) as any)} maxW="180px">
               <option value="active">Ativo</option>
               <option value="inactive">Inativo</option>
               <option value="all">Todos</option>
             </Select>
-	            <Button leftIcon={<Icon name='search' size={16} />} onClick={()=>{ setFilterName(draftName.trim()); setFilterPlanId(draftPlanId); setFilterStatus(draftStatus); setFilterPaymentMethod(draftPaymentMethod); }}>Buscar</Button>
-	            <Button variant="outline" onClick={()=>{ setDraftName(''); setDraftPlanId(''); setDraftStatus(filterAll); setDraftPaymentMethod(filterAll); setFilterName(''); setFilterPlanId(''); setFilterStatus(filterAll); setFilterPaymentMethod(filterAll); }}>Limpar</Button>
+            <Button leftIcon={<Icon name='search' size={16} />} onClick={() => { setFilterName(draftName.trim()); setFilterPlanId(draftPlanId); setFilterStatus(draftStatus); setFilterPaymentMethod(draftPaymentMethod); }}>Buscar</Button>
+            <Button variant="outline" onClick={() => { setDraftName(''); setDraftPlanId(''); setDraftStatus(filterAll); setDraftPaymentMethod(filterAll); setFilterName(''); setFilterPlanId(''); setFilterStatus(filterAll); setFilterPaymentMethod(filterAll); }}>Limpar</Button>
           </HStack>
         )}
 
@@ -185,19 +185,19 @@ export default function StudentsPage() {
         ) : (
           <>
             {isMobile ? (
-	              <VStack spacing={3} mt={5} align="stretch">
-	                {displayedStudents.map(s => (
-	                  <Box key={s.id} borderWidth="1px" borderRadius="md" p={4}>
-	                    <HStack justify="space-between" align="start">
-	                      <VStack align="start" spacing={1}>
-	                        <Text fontWeight={700}>{s.name}</Text>
-	                        <Text fontSize="sm" color="gray.600">Plano: {plans.find(p => p.id === s.activePlanId)?.name || '-'}</Text>
-	                        <Text fontSize="sm" color="gray.600">Pagamento: {getPaymentMethodLabel(s)}</Text>
-	                        <Badge colorScheme={s.active ? 'green' : 'red'}>{s.active ? 'Ativo' : 'Inativo'}</Badge>
-	                      </VStack>
+              <VStack spacing={3} mt={5} align="stretch">
+                {displayedStudents.map(s => (
+                  <Box key={s.id} borderWidth="1px" borderRadius="md" p={4}>
+                    <HStack justify="space-between" align="start">
+                      <VStack align="start" spacing={1}>
+                        <Text fontWeight={700}>{s.name}</Text>
+                        <Text fontSize="sm" color="gray.600">Plano: {plans.find(p => p.id === s.activePlanId)?.name || '-'}</Text>
+                        <Text fontSize="sm" color="gray.600">Pagamento: {getPaymentMethodLabel(s)}</Text>
+                        <Badge colorScheme={s.active ? 'green' : 'red'}>{s.active ? 'Ativo' : 'Inativo'}</Badge>
+                      </VStack>
                       <HStack spacing={2}>
-                        <Button size="sm" onClick={()=>openEdit(s.id)}><Icon name='edit' size={16} /></Button>
-                        <Button size="sm" variant="outline" colorScheme='red' onClick={()=>setDeleteId(s.id)}><Icon name='trash' size={16} /></Button>
+                        <Button size="sm" onClick={() => openEdit(s.id)}><Icon name='edit' size={16} /></Button>
+                        <Button size="sm" variant="outline" colorScheme='red' onClick={() => setDeleteId(s.id)}><Icon name='trash' size={16} /></Button>
                       </HStack>
                     </HStack>
                   </Box>
@@ -205,47 +205,47 @@ export default function StudentsPage() {
                 {loadingMore && <Center py={4}><Spinner size="sm" /></Center>}
               </VStack>
             ) : (
-	              <>
-	                <Table size="md" mt={5}>
-	                  <Thead>
-	                    <Tr>
-	                      <Th>Nome</Th>
-	                      <Th>Plano</Th>
-	                      <Th textAlign="center">Método de pagamento</Th>
-	                      <Th>Status</Th>
-	                      <Th textAlign="right" pr={24}>Ações</Th>
-	                    </Tr>
-	                  </Thead>
-	                  <Tbody>
-	                    {displayedStudents.map(s => (
-	                      <Tr key={s.id}>
-	                        <Td fontWeight="medium">{s.name}</Td>
-	                        <Td>{plans.find(p => p.id === s.activePlanId)?.name || '-'}</Td>
-	                        <Td textAlign="center">{getPaymentMethodLabel(s)}</Td>
-	                        <Td>{s.active ? <Badge colorScheme='green'>Ativo</Badge> : <Badge colorScheme='red'>Inativo</Badge>}</Td>
-	                        <Td textAlign="right">
-	                          <HStack justify="flex-end" spacing={2}>
-	                            <Button size="sm" leftIcon={<Icon name='edit' size={16} />} onClick={()=>openEdit(s.id)}>Editar</Button>
-	                            <Button size="sm" variant="outline" leftIcon={<Icon name='trash' size={16} />} colorScheme='red' onClick={()=>setDeleteId(s.id)}>Excluir</Button>
-	                          </HStack>
-	                        </Td>
-	                      </Tr>
-	                    ))}
-	                  </Tbody>
-	                </Table>
-	                {loadingMore && <Center py={4}><Spinner size="sm" /></Center>}
-	              </>
+              <>
+                <Table size="md" mt={5}>
+                  <Thead>
+                    <Tr>
+                      <Th>Nome</Th>
+                      <Th>Plano</Th>
+                      <Th textAlign="center">Método de pagamento</Th>
+                      <Th>Status</Th>
+                      <Th textAlign="right" pr={24}>Ações</Th>
+                    </Tr>
+                  </Thead>
+                  <Tbody>
+                    {displayedStudents.map(s => (
+                      <Tr key={s.id}>
+                        <Td fontWeight="medium">{s.name}</Td>
+                        <Td>{plans.find(p => p.id === s.activePlanId)?.name || '-'}</Td>
+                        <Td textAlign="center">{getPaymentMethodLabel(s)}</Td>
+                        <Td>{s.active ? <Badge colorScheme='green'>Ativo</Badge> : <Badge colorScheme='red'>Inativo</Badge>}</Td>
+                        <Td textAlign="right">
+                          <HStack justify="flex-end" spacing={2}>
+                            <Button size="sm" leftIcon={<Icon name='edit' size={16} />} onClick={() => openEdit(s.id)}>Editar</Button>
+                            <Button size="sm" variant="outline" leftIcon={<Icon name='trash' size={16} />} colorScheme='red' onClick={() => setDeleteId(s.id)}>Excluir</Button>
+                          </HStack>
+                        </Td>
+                      </Tr>
+                    ))}
+                  </Tbody>
+                </Table>
+                {loadingMore && <Center py={4}><Spinner size="sm" /></Center>}
+              </>
             )}
           </>
         )}
 
-        <AlertDialog isOpen={!!deleteId} leastDestructiveRef={cancelRef} onClose={()=>setDeleteId(undefined)}>
+        <AlertDialog isOpen={!!deleteId} leastDestructiveRef={cancelRef} onClose={() => setDeleteId(undefined)}>
           <AlertDialogOverlay />
           <AlertDialogContent>
             <AlertDialogHeader>Confirmar exclusão</AlertDialogHeader>
             <AlertDialogBody>Tem certeza que deseja excluir este aluno?</AlertDialogBody>
             <AlertDialogFooter>
-              <Button ref={cancelRef as any} onClick={()=>setDeleteId(undefined)}>Cancelar</Button>
+              <Button ref={cancelRef as any} onClick={() => setDeleteId(undefined)}>Cancelar</Button>
               <Button ml={3} colorScheme='red' onClick={removeNow}>Excluir</Button>
             </AlertDialogFooter>
           </AlertDialogContent>

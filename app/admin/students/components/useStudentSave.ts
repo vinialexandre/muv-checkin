@@ -1,18 +1,35 @@
 import { useToast } from '@chakra-ui/react';
-import { useRouter } from 'next/navigation';
 import { addDoc, collection, doc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
 import { centroid } from '@/lib/face/match1vN';
 import { onlyDigits, StudentFormData } from '@/app/admin/students/formConfig';
+import { useDuplicateCheck } from './useDuplicateCheck';
 
 export function useStudentSave(mode: 'new' | 'edit', studentId?: string) {
-  const router = useRouter();
   const toast = useToast();
+  const { check: checkDuplicate } = useDuplicateCheck(studentId);
 
-  const save = async (data: StudentFormData, photoBlobs: Blob[], samples: number[][], stopVideo: () => void) => {
+  const save = async (data: StudentFormData, photoBlobs: Blob[], samples: number[][], stopVideo: () => void): Promise<string | undefined> => {
     if (!data.activePlanId) {
       toast({ title: 'Selecione um plano valido', status: 'warning' });
+      return;
+    }
+
+    const duplicateResult = await checkDuplicate(data.email, data.whatsapp, data.billingDocument);
+    if (duplicateResult.isDuplicate) {
+      const fieldLabel = {
+        email: 'Email',
+        phone: 'Telefone/WhatsApp',
+        document: 'CPF',
+      }[duplicateResult.field || 'email'];
+      toast({
+        title: 'Aluno duplicado',
+        description: `${fieldLabel} já cadastrado para ${duplicateResult.existingStudentName}`,
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
       return;
     }
 
@@ -150,7 +167,7 @@ export function useStudentSave(mode: 'new' | 'edit', studentId?: string) {
 
     toast({ title: mode === 'new' ? 'Aluno criado' : 'Aluno atualizado', status: 'success' });
     stopVideo();
-    router.push('/admin/students');
+    return docId;
   };
 
   return { save };
