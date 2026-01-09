@@ -2,7 +2,7 @@
 import PageCard from '@/components/PageCard';
 import { db } from '@/lib/firebase';
 import { Student } from '@/lib/firestore';
-import { AlertDialog, AlertDialogBody, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogOverlay, Badge, Button, Center, HStack, Input, Select, Spinner, Table, Tbody, Td, Text, Th, Thead, Tr, VStack, useToast, Box, useMediaQuery, IconButton, Heading } from '@chakra-ui/react';
+import { AlertDialog, AlertDialogBody, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogOverlay, Badge, Button, Center, HStack, Input, Select, Spinner, Table, Tbody, Td, Text, Th, Thead, Tr, VStack, useToast, Box, useMediaQuery, IconButton, Heading, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter } from '@chakra-ui/react';
 import { Icon } from '@/components/Icon';
 
 import { collection, deleteDoc, doc, getDocs, onSnapshot, orderBy, query } from 'firebase/firestore';
@@ -11,6 +11,16 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { normalizeText } from '@/lib/utils';
 
 type Plan = { id: string; name: string };
+
+type BulkStudentConfig = {
+  studentId: string;
+  name: string;
+  cpf: string;
+  whatsapp: string;
+  planId: string;
+  billingDay: number | '';
+  discount: number | '';
+};
 
 export default function StudentsPage() {
   const router = useRouter();
@@ -38,6 +48,14 @@ export default function StudentsPage() {
   // scroll infinito
   const [displayCount, setDisplayCount] = useState(10);
   const [loadingMore, setLoadingMore] = useState(false);
+
+  // modal de geracao em massa
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const [bulkConfigs, setBulkConfigs] = useState<BulkStudentConfig[]>([]);
+  const [bulkGenerating, setBulkGenerating] = useState(false);
+  const [massPlanId, setMassPlanId] = useState('');
+  const [massBillingDay, setMassBillingDay] = useState<number | ''>('');
+  const [massDiscount, setMassDiscount] = useState<number | ''>('');
 
   const isRecurringPayment = (student: Student) => {
     return (
@@ -118,6 +136,99 @@ export default function StudentsPage() {
   function openCreate() { setNavigating(true); router.push('/admin/students/new'); }
   function openEdit(id: string) { setNavigating(true); router.push(`/admin/students/${id}/edit`); }
 
+  function openBulkModal() {
+    const eligible = students.filter(s => s.active && !s.pagarmeSubscriptionId);
+    setBulkConfigs(
+      eligible.map(s => ({
+        studentId: s.id,
+        name: s.name || '',
+        cpf: s.billingContact?.document || '',
+        whatsapp: s.whatsapp || s.phone || '',
+        planId: s.activePlanId || '',
+        billingDay: s.billingDay || '',
+        discount: s.subscriptionDiscount || '',
+      }))
+    );
+    setMassPlanId('');
+    setMassBillingDay('');
+    setMassDiscount('');
+    setBulkModalOpen(true);
+  }
+
+  function applyMassValues() {
+    setBulkConfigs(prev => prev.map(cfg => ({
+      ...cfg,
+      planId: massPlanId || cfg.planId,
+      billingDay: massBillingDay || cfg.billingDay,
+      discount: massDiscount !== '' ? massDiscount : cfg.discount,
+    })));
+  }
+
+  function updateConfig(idx: number, field: keyof BulkStudentConfig, value: string | number | '') {
+    setBulkConfigs(prev => {
+      const copy = [...prev];
+      copy[idx] = { ...copy[idx], [field]: value };
+      return copy;
+    });
+  }
+
+  async function handleBulkGenerate() {
+    const valid = bulkConfigs.filter(c => c.planId && c.billingDay);
+    if (valid.length === 0) {
+      toast({ title: 'Preencha plano e vencimento para pelo menos um aluno', status: 'warning' });
+      return;
+    }
+
+    setBulkGenerating(true);
+    const base = window.location.origin;
+    const rows: { nome: string; cpf: string; whatsapp: string; link: string }[] = [];
+
+    for (const cfg of valid) {
+      try {
+        const payload: Record<string, unknown> = {
+          studentId: cfg.studentId,
+          planId: cfg.planId,
+          allowedPlanIds: [cfg.planId],
+          allowPlanChange: false,
+          billingDay: cfg.billingDay,
+        };
+        if (cfg.discount && Number(cfg.discount) > 0) {
+          payload.discount = { value: Number(cfg.discount), type: 'percentage' };
+        }
+        const res = await fetch('/api/subscribe/invite/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (res.ok && json.urlPath) {
+          rows.push({
+            nome: cfg.name,
+            cpf: cfg.cpf,
+            whatsapp: cfg.whatsapp,
+            link: `${base}${json.urlPath}`,
+          });
+        }
+      } catch (err) {
+        console.error('Erro ao gerar link para', cfg.name, err);
+      }
+    }
+
+    if (rows.length > 0) {
+      const XLSX = await import('xlsx');
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Links');
+      XLSX.writeFile(wb, 'links-assinatura.xlsx');
+      toast({ title: `${rows.length} links gerados com sucesso`, status: 'success' });
+    } else {
+      toast({ title: 'Nenhum link foi gerado', status: 'error' });
+    }
+
+    setBulkGenerating(false);
+    setBulkModalOpen(false);
+  }
+
   return (
     <VStack align="stretch" spacing={8}>
       {navigating && (
@@ -131,7 +242,10 @@ export default function StudentsPage() {
             <Icon name='users' />
             <Heading size="md">Alunos</Heading>
           </HStack>
-          <Button variant="secondary" leftIcon={isMobile ? undefined : <Icon name='plus' size={16} />} onClick={openCreate}>{isMobile ? <Icon name='plus' size={16} /> : 'Adicionar'}</Button>
+          <HStack spacing={2}>
+            <Button variant="outline" leftIcon={isMobile ? undefined : <Icon name='link' size={16} />} onClick={openBulkModal}>{isMobile ? <Icon name='link' size={16} /> : 'Gerar links de assinatura'}</Button>
+            <Button variant="secondary" leftIcon={isMobile ? undefined : <Icon name='plus' size={16} />} onClick={openCreate}>{isMobile ? <Icon name='plus' size={16} /> : 'Adicionar'}</Button>
+          </HStack>
         </HStack>
         <HStack justify="space-between" mb={2}><Text fontWeight={600}>Filtros</Text></HStack>
         {isMobile ? (
@@ -250,6 +364,77 @@ export default function StudentsPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        <Modal isOpen={bulkModalOpen} onClose={() => !bulkGenerating && setBulkModalOpen(false)} size="6xl">
+          <ModalOverlay />
+          <ModalContent>
+            <ModalHeader>Gerar links de assinatura em massa</ModalHeader>
+            <ModalCloseButton isDisabled={bulkGenerating} />
+            <ModalBody>
+              {bulkConfigs.length === 0 ? (
+                <Center py={10}>
+                  <Text color="gray.500">Nenhum aluno ativo sem assinatura encontrado</Text>
+                </Center>
+              ) : (
+                <>
+                  <HStack mb={4} p={3} bg="gray.50" borderRadius="md" wrap="wrap" spacing={3}>
+                    <Text fontWeight={600} fontSize="sm">Aplicar a todos:</Text>
+                    <Select size="sm" placeholder="Plano" maxW="180px" value={massPlanId} onChange={e => setMassPlanId(e.target.value)}>
+                      {plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </Select>
+                    <Select size="sm" placeholder="Dia" maxW="100px" value={massBillingDay} onChange={e => setMassBillingDay(e.target.value ? Number(e.target.value) : '')}>
+                      {Array.from({ length: 31 }, (_, i) => i + 1).map(d => <option key={d} value={d}>{d}</option>)}
+                    </Select>
+                    <Input size="sm" placeholder="Desconto %" type="number" maxW="100px" value={massDiscount} onChange={e => setMassDiscount(e.target.value ? Number(e.target.value) : '')} />
+                    <Button size="sm" onClick={applyMassValues}>Aplicar</Button>
+                  </HStack>
+
+                  <Box maxH="400px" overflowY="auto">
+                    <Table size="sm">
+                      <Thead position="sticky" top={0} bg="white" zIndex={1}>
+                        <Tr>
+                          <Th>Nome</Th>
+                          <Th>Plano</Th>
+                          <Th>Vencimento</Th>
+                          <Th>Desconto %</Th>
+                        </Tr>
+                      </Thead>
+                      <Tbody>
+                        {bulkConfigs.map((cfg, idx) => (
+                          <Tr key={cfg.studentId}>
+                            <Td>{cfg.name}</Td>
+                            <Td>
+                              <Select size="sm" value={cfg.planId} onChange={e => updateConfig(idx, 'planId', e.target.value)}>
+                                <option value="">-</option>
+                                {plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                              </Select>
+                            </Td>
+                            <Td>
+                              <Select size="sm" value={cfg.billingDay} onChange={e => updateConfig(idx, 'billingDay', e.target.value ? Number(e.target.value) : '')}>
+                                <option value="">-</option>
+                                {Array.from({ length: 31 }, (_, i) => i + 1).map(d => <option key={d} value={d}>{d}</option>)}
+                              </Select>
+                            </Td>
+                            <Td>
+                              <Input size="sm" type="number" value={cfg.discount} onChange={e => updateConfig(idx, 'discount', e.target.value ? Number(e.target.value) : '')} maxW="80px" />
+                            </Td>
+                          </Tr>
+                        ))}
+                      </Tbody>
+                    </Table>
+                  </Box>
+                </>
+              )}
+            </ModalBody>
+            <ModalFooter>
+              <Text fontSize="sm" color="gray.500" mr="auto">
+                {bulkConfigs.filter(c => c.planId && c.billingDay).length} de {bulkConfigs.length} alunos prontos para gerar
+              </Text>
+              <Button variant="ghost" mr={3} onClick={() => setBulkModalOpen(false)} isDisabled={bulkGenerating}>Cancelar</Button>
+              <Button isLoading={bulkGenerating} onClick={handleBulkGenerate} isDisabled={bulkConfigs.filter(c => c.planId && c.billingDay).length === 0}>Gerar XLSX</Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
       </PageCard>
     </VStack>
   );

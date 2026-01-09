@@ -33,6 +33,7 @@
     "react-hook-form": "^7.62.0",
     "react-imask": "^7.6.1",
     "react-input-mask": "^2.0.4",
+    "xlsx": "^0.18.5",
     "yup": "^1.7.0",
     "zod": "^3.23.8"
   },

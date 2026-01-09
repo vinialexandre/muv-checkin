@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
       ? Array.from(new Set(inputAllowed.map((x: any) => String(x)).filter(Boolean)))
       : []
     const rawBillingDay = Number(body?.billingDay)
-    const billingDay = rawBillingDay >= 1 && rawBillingDay <= 28 ? rawBillingDay : undefined
+    const billingDay = rawBillingDay >= 1 && rawBillingDay <= 31 ? rawBillingDay : undefined
 
     const discountInput = body?.discount
     const discount = discountInput && typeof discountInput === 'object' ? {

@@ -319,7 +319,7 @@ export function buildStudentFormValues(student?: Partial<Student> | null): Build
   values.billingCountry = billingAddress?.country ? String(billingAddress.country).toUpperCase() : "BR";
 
   const rawBillingDay = Number((student as any).billingDay);
-  values.billingDay = rawBillingDay >= 1 && rawBillingDay <= 28 ? rawBillingDay : undefined;
+  values.billingDay = rawBillingDay >= 1 && rawBillingDay <= 31 ? rawBillingDay : undefined;
 
   const rawDiscount = Number((student as any).subscriptionDiscount);
   values.subscriptionDiscount = rawDiscount > 0 && rawDiscount <= 100 ? rawDiscount : undefined;

@@ -1,4 +1,4 @@
-import { ChevronLeft, Check, FileWarning, ChevronRight, FolderOpen, Monitor, User, Users, LogOut, LogIn, Settings, Edit, Trash2, Plus, Search, Filter, X, CalendarDays, Camera, Clock, Menu, Download, CreditCard, RefreshCw } from 'lucide-react';
+import { ChevronLeft, Check, FileWarning, ChevronRight, FolderOpen, Monitor, User, Users, LogOut, LogIn, Settings, Edit, Trash2, Plus, Search, Filter, X, CalendarDays, Camera, Clock, Menu, Download, CreditCard, RefreshCw, Link2 } from 'lucide-react';
 import { ComponentProps } from 'react';
 
 export type IconName =
@@ -11,6 +11,7 @@ export type IconName =
   | 'menu'
   | 'creditCard'
   | 'refresh'
+  | 'link'
   | 'checkIcon' | 'warningIcon';
 
 const MAP: Record<IconName, React.ComponentType<ComponentProps<'svg'>>> = {
@@ -38,6 +39,7 @@ const MAP: Record<IconName, React.ComponentType<ComponentProps<'svg'>>> = {
   menu: Menu,
   creditCard: CreditCard,
   refresh: RefreshCw,
+  link: Link2,
 };
 
 export function Icon({ name, size = 18, color = 'currentColor', strokeWidth = 1.75, ...props }: { name: IconName } & ComponentProps<'svg'> & { size?: number; color?: string; strokeWidth?: number }) {

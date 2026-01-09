@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
 
     const studentId = String(invite.studentId)
     const rawBillingDay = Number(invite?.billingDay)
-    const billingDay = rawBillingDay >= 1 && rawBillingDay <= 28 ? rawBillingDay : undefined
+    const billingDay = rawBillingDay >= 1 && rawBillingDay <= 31 ? rawBillingDay : undefined
     const inviteDiscount = invite?.discount ? {
       value: Number(invite.discount.value),
       type: invite.discount.type || 'percentage',
@@ -157,13 +157,24 @@ export async function POST(req: NextRequest) {
     }
 
     let startAt: string | undefined
-    if (billingDay && billingDay >= 1 && billingDay <= 28) {
+    if (billingDay && billingDay >= 1 && billingDay <= 31) {
       const now = new Date()
-      const currentYear = now.getFullYear()
-      const currentMonth = now.getMonth()
-      const candidate = new Date(currentYear, currentMonth, billingDay, 0, 0, 0, 0)
-      const effective = candidate <= now ? new Date(currentYear, currentMonth + 1, billingDay, 0, 0, 0, 0) : candidate
-      startAt = effective.toISOString()
+      const baseYear = now.getFullYear()
+      const baseMonth = now.getMonth()
+      const lastDayThisMonth = new Date(baseYear, baseMonth + 1, 0).getDate()
+      const dayThisMonth = Math.min(billingDay, lastDayThisMonth)
+      const candidate = new Date(baseYear, baseMonth, dayThisMonth, 0, 0, 0, 0)
+      if (candidate <= now) {
+        const nextMonthDate = new Date(baseYear, baseMonth + 1, 1)
+        const nextYear = nextMonthDate.getFullYear()
+        const nextMonth = nextMonthDate.getMonth()
+        const lastDayNextMonth = new Date(nextYear, nextMonth + 1, 0).getDate()
+        const dayNextMonth = Math.min(billingDay, lastDayNextMonth)
+        const effective = new Date(nextYear, nextMonth, dayNextMonth, 0, 0, 0, 0)
+        startAt = effective.toISOString()
+      } else {
+        startAt = candidate.toISOString()
+      }
     }
 
     const created = await createSubscription({

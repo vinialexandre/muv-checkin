@@ -65,7 +65,7 @@ export default function SubscriptionTab({ mode, studentId, control, watch, plans
 	useEffect(() => {
 		if (mode === 'edit' && billingDayValue && !billingDay) {
 			const day = Number(billingDayValue);
-			if (day >= 1 && day <= 28) {
+			if (day >= 1 && day <= 31) {
 				setBillingDay(day);
 			}
 		}
@@ -99,8 +99,8 @@ export default function SubscriptionTab({ mode, studentId, control, watch, plans
 			toast({ status: 'warning', title: 'Selecione um plano antes de gerar o link' });
 			return;
 		}
-		if (!billingDay || billingDay < 1 || billingDay > 28) {
-			toast({ status: 'warning', title: 'Selecione o dia de vencimento (1-28)' });
+		if (!billingDay || billingDay < 1 || billingDay > 31) {
+			toast({ status: 'warning', title: 'Selecione o dia de vencimento (1-31)' });
 			return;
 		}
 		setGeneratingInvite(true);
@@ -109,7 +109,7 @@ export default function SubscriptionTab({ mode, studentId, control, watch, plans
 			const baseIds = allowPlanChange ? plans.map((plan) => plan.id) : [activePlanIdValue];
 			const allowedPlanIds = Array.from(new Set([...baseIds, activePlanIdValue]));
 			const payload: Record<string, any> = { studentId, planId: activePlanIdValue, allowedPlanIds, allowPlanChange };
-			if (billingDay && billingDay >= 1 && billingDay <= 28) {
+			if (billingDay && billingDay >= 1 && billingDay <= 31) {
 				payload.billingDay = billingDay;
 			}
 			if (discountValue && discountValue > 0) {
@@ -230,7 +230,7 @@ export default function SubscriptionTab({ mode, studentId, control, watch, plans
 										value={billingDay}
 										onChange={(e) => setBillingDay(e.target.value ? Number(e.target.value) : '')}
 									>
-										{Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
+										{Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
 											<option key={day} value={day}>{day}</option>
 										))}
 									</Select>
@@ -289,7 +289,7 @@ export default function SubscriptionTab({ mode, studentId, control, watch, plans
 						{showInvoicesTable && (
 							<Box borderWidth="1px" borderRadius="lg" padding={4} marginTop={4}>
 								<HStack justifyContent="space-between" marginBottom={3}>
-									<Text fontSize="md" fontWeight={600}>Resumo de faturas</Text>
+									<Text fontSize="md" fontWeight={600}>Histórico de pagamentos</Text>
 									{invoicesLoading && <Spinner size="sm" />}
 								</HStack>
 								<Table size="sm">
